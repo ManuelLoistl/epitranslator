@@ -14,6 +14,8 @@ adapted to the fact that source code is **pasted, not cloned**:
    the model code only **runs** (no re-translation).
 3. Cheap validation on the translated run: smoke test (imports/instantiates/runs)
    + invariants (no NaN/Inf, non-negative compartments, mass balance, R0 sane).
+   NOTE: running the output model is **best-effort / optional** — only do it when
+   we actually can; otherwise skip running entirely, no need to force it.
 4. Equivalence check, tiered by source language:
    - **Python source** → run original + translated with the same inputs and
      compare numerically (per-compartment R²/RMSE/max-rel-error). Feasible because
@@ -34,6 +36,16 @@ this; confirm it does.
 - Running the *original* model in arbitrary native languages (multi-runtime ops).
 - Automated GitHub push (re-adds the auth we're avoiding; download is enough).
 - A parameter/config wizard for runs (default/example inputs are fine).
+
+## DEFERRED — revisit later, after the core flow works
+
+**Running generated/pasted Python code — failures, deps, error surfacing.**
+Best-effort feature. When we build it, handle: missing dependencies, runtime
+errors/tracebacks surfaced to the UI so the user can edit and re-run, and the
+case where the model simply can't be run (skip gracefully). Parked for now.
+
+**Error surfacing in general (translation + run).** Show clean errors/tracebacks
+in the UI. Deferred — basic error events exist in the API already; polish later.
 
 ## DEFERRED — revisit LAST, after everything else
 
