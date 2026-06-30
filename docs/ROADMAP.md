@@ -87,6 +87,20 @@ IndexedDB. No auth, no DB, no backend state. Correct scope for a test tool.
 - User commits the file to GitHub themselves. **Automated GitHub push is
   skipped** (re-adds the auth we're avoiding; download is enough).
 
+### 9. Make interventions easy to add — **S (lightweight) / M (builder)**
+After a user pastes their disease model, make it easy to add interventions.
+- **Lightweight first pass (preferred):** in the UI, surface that interventions
+  *can* be added and link/show the documentation on how to express them in the
+  target schema — i.e. guidance + a pointer, not a form. Likely just a hint +
+  doc link near submission/output.
+- Fuller version (later, if needed): an actual intervention builder/picker that
+  injects intervention definitions into the translation — **M**, only on demand.
+
+### 10. In-app documentation (view + download) — **S**
+Make the project/schema documentation available inside the app — viewable in the
+UI and downloadable. Powers item 9 (the intervention guidance) and general
+onboarding. Source the docs from the repo so there's one source of truth.
+
 ---
 
 ## Linchpin decision (settle early)
