@@ -9,7 +9,15 @@ is: don't over-build, don't paint into a corner.
 A translation flow closer to the epidemic-simulator importer's "checks and runs",
 adapted to the fact that source code is **pasted, not cloned**:
 
+0. On submit, let the user pick a **category** from a fixed list (e.g.
+   respiratory, vector-borne, waterborne, …) alongside the pasted code. Feeds
+   into the translation prompt (and is stored with the output) so the translation
+   is category-aware. Small addition: a dropdown in the UI + one field in the
+   request + a line in the prompt builder.
 1. Translate pasted model code into the target Python schema (built — current app).
+   Support **multiple input files → single consolidated output** (easy path:
+   list of {filename, content} concatenated into the prompt with file headers;
+   UI lets the user add several named files). Multi-file *output* deferred.
 2. Show the translated code, let the user **edit** it and resubmit. On resubmit,
    the model code only **runs** (no re-translation).
 3. Cheap validation on the translated run: smoke test (imports/instantiates/runs)
