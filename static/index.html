@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Disease Model Translator</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a212b;
+    --border: #2b3645;
+    --text: #e6edf3;
+    --muted: #8b97a7;
+    --accent: #e8692d;
+    --accent-hover: #f47b40;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .meta code { color: var(--accent); }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: 0;
+  }
+  .pane { background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .pane-head {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .pane-head label { font-size: 13px; color: var(--muted); }
+  .pane-head input[type=text] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    width: 140px;
+  }
+  textarea, pre {
+    flex: 1;
+    margin: 0;
+    border: 0;
+    padding: 16px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: none;
+    overflow: auto;
+    white-space: pre;
+    tab-size: 4;
+  }
+  textarea:focus { outline: none; }
+  pre { white-space: pre-wrap; word-break: break-word; }
+  footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .status { color: var(--muted); font-size: 13px; }
+  .status.error { color: #f78a8a; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Disease Model Translator</h1>
+    <span class="meta" id="meta">loading config…</span>
+  </header>
+
+  <main>
+    <section class="pane">
+      <div class="pane-head">
+        <label for="source">Source model</label>
+        <input type="text" id="lang" placeholder="language (optional)" />
+      </div>
+      <textarea id="source" placeholder="Paste the disease model source code here…" spellcheck="false"></textarea>
+    </section>
+
+    <section class="pane">
+      <div class="pane-head">
+        <label>Translated (target schema)</label>
+        <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
+      </div>
+      <pre id="output"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <button id="translate">Translate</button>
+    <button class="secondary" id="stop" style="display:none;">Stop</button>
+    <span class="status" id="status"></span>
+  </footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let controller = null;
+
+async function loadConfig() {
+  try {
+    const r = await fetch("/api/health");
+    const j = await r.json();
+    const c = j.config, a = j.assets;
+    const keyWarn = c.api_key_present ? "" : " · ⚠ no API key set";
+    $("meta").innerHTML =
+      `model <code>${c.model}</code> · effort ${c.effort} · thinking ${c.thinking}` +
+      ` · ${a.example_count} example(s)${keyWarn}`;
+  } catch (e) {
+    $("meta").textContent = "could not load config";
+  }
+}
+
+function setRunning(running) {
+  $("translate").disabled = running;
+  $("stop").style.display = running ? "inline-block" : "none";
+}
+
+async function translate() {
+  const source_code = $("source").value.trim();
+  if (!source_code) { setStatus("Paste some source code first.", true); return; }
+
+  $("output").textContent = "";
+  setStatus("Translating…");
+  setRunning(true);
+  controller = new AbortController();
+
+  try {
+    const resp = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_code, source_language: $("lang").value.trim() }),
+      signal: controller.signal,
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let bytes = 0;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        const evt = JSON.parse(line.slice(5).trim());
+        if (evt.error) { setStatus(evt.error, true); setRunning(false); return; }
+        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); setRunning(false); return; }
+        if (evt.text) {
+          $("output").textContent += evt.text;
+          bytes += evt.text.length;
+          $("output").scrollTop = $("output").scrollHeight;
+        }
+      }
+    }
+    setStatus(`Done · ${bytes.toLocaleString()} chars`);
+  } catch (e) {
+    if (e.name === "AbortError") setStatus("Stopped.");
+    else setStatus("Request failed: " + e.message, true);
+  } finally {
+    setRunning(false);
+  }
+}
+
+function setStatus(msg, isError) {
+  const el = $("status");
+  el.textContent = msg;
+  el.className = "status" + (isError ? " error" : "");
+}
+
+$("translate").addEventListener("click", translate);
+$("stop").addEventListener("click", () => controller && controller.abort());
+$("copy").addEventListener("click", () => {
+  navigator.clipboard.writeText($("output").textContent);
+  setStatus("Copied.");
+});
+$("source").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
+});
+
+loadConfig();
+</script>
+</body>
+</html>
