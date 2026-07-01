@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Disease Model Translator</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 <style>
   :root {
     --bg: #0f1419;
@@ -31,7 +32,8 @@
     align-items: center;
     gap: 16px;
   }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600;
+              display: inline-flex; align-items: center; gap: 8px; }
   header .meta { color: var(--muted); font-size: 12px; }
   header .meta code { color: var(--accent); }
   main {
@@ -156,7 +158,7 @@
 </head>
 <body>
   <header>
-    <h1>Disease Model Translator</h1>
+    <h1><img src="/static/favicon.svg" width="22" height="22" alt="" />Disease Model Translator</h1>
     <span class="meta" id="meta">loading config…</span>
     <button class="secondary mini" id="schemaBtn" style="margin-left:auto;">Schema reference</button>
   </header>
