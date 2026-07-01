@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import prompt as prompt_assets
+from backend import report as report_mod
 from backend import translator
 
 logger = logging.getLogger("model-translator")
@@ -62,8 +63,8 @@ async def translate(payload: dict) -> StreamingResponse:
             )
             return
         try:
-            for chunk in translator.stream_translation(source_code, source_language):
-                yield _sse({"text": chunk})
+            chunks = translator.stream_translation(source_code, source_language)
+            yield from _translation_events(chunks)
             yield _sse({"done": True})
         except Exception as exc:  # surface a clean message to the UI
             logger.exception("translation failed")
@@ -74,6 +75,18 @@ async def translate(payload: dict) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _translation_events(chunks):
+    """Turn a translation stream into SSE strings: {text} per code line, and one
+    {report} when the model emits a valid JSON report block."""
+    for kind, payload in report_mod.split_stream(chunks):
+        if kind == "text":
+            yield _sse({"text": payload})
+        else:  # "report"
+            parsed = report_mod.parse_report(payload)
+            if parsed is not None:
+                yield _sse({"report": parsed})
 
 
 def _sse(obj: dict) -> str:
