@@ -196,3 +196,22 @@ Live end-to-end confirmed the model emits a valid report and the code stays clea
   (unit transforms), plus dropped-age-structure attention items.
 Graceful degradation confirmed: with `output_report.md` removed, no report event is
 emitted and the app shows code only, without error.
+
+### Follow-up hardening (2026-07-01)
+
+Live browser testing showed the model sometimes ignored the exact format and wrote
+the report as a **paraphrased comment block** (`# ===TRANSLATION REPORT===` with
+`# -` bullet prose) instead of the sentinel + raw JSON — which then leaked into the
+code pane. Hardening, so the report can never appear as code:
+
+- **`prompt_assets/output_report.md` strengthened** (prompt change): emphasizes the
+  sentinel must be copied verbatim (not paraphrased, no `=`), that everything after
+  it is **raw JSON only** (starts `{`, ends `}`), and an explicit "do NOT write the
+  report as Python comments / do NOT prefix lines with `#` / do NOT use code fences"
+  list, including a "if you catch yourself writing `# - …` bullets, STOP" note.
+- **`backend/report.py` (code, not prompt):** the sentinel matcher is now a tolerant
+  regex (accepts paraphrased dividers) so a non-canonical divider is still stripped
+  out of the code; and `parse_report` falls back to the outermost `{…}` span so a
+  stray prefix/fence around valid JSON still parses.
+- **UI:** the report moved to a full-width drawer below both panes (code pane holds
+  only code).

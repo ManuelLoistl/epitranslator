@@ -1,12 +1,23 @@
 ## Output addendum — translation report
 
-After the complete `model.py`, emit one line containing exactly:
+After the complete `model.py`, emit one line that is EXACTLY these characters
+(copy it verbatim — do not paraphrase the divider, do not change the dashes to
+`=`, do not add spaces):
 
     # ---TRANSLATION-REPORT---
 
-then a single JSON object (no code fences, nothing after it) describing what the
-translation did. The app parses this to show the user what needs attention and
-to audit every mapping. It is NOT part of `model.py`.
+then a single raw JSON object describing what the translation did. The app parses
+this to show the user what needs attention and to audit every mapping. It is NOT
+part of `model.py` and the user never sees it as code.
+
+**This is machine-read, not a human comment block. Critical format rules:**
+- The sentinel line must be exactly `# ---TRANSLATION-REPORT---` on its own line.
+- Everything after it is **raw JSON only** — starts with `{` and ends with `}`.
+- Do **NOT** write the report as Python comments. Do **NOT** prefix report lines
+  with `#`. Do **NOT** wrap it in ``` code fences. Do **NOT** add prose before or
+  after the JSON.
+- If you catch yourself writing `# - ...` bullet lines, STOP — that is wrong;
+  put that information inside the JSON `note`/`detail` fields instead.
 
 Shape:
 

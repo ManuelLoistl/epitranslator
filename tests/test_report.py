@@ -45,3 +45,34 @@ def test_parse_report_empty_returns_none():
 
 def test_parse_report_non_object_returns_none():
     assert parse_report("[1, 2]") is None
+
+
+def test_tolerant_sentinel_paraphrased_divider():
+    # Model paraphrased the sentinel (=== and a space); it must still split out.
+    out = collect(["code\n", "# ===TRANSLATION REPORT===\n", '{"a": 1}'])
+    assert out == [("text", "code\n"), ("report", '{"a": 1}')]
+
+
+def test_tolerant_sentinel_variants_all_detected():
+    for line in [
+        "# ---TRANSLATION-REPORT---",
+        "# ===TRANSLATION REPORT===",
+        "#===TRANSLATION_REPORT===",
+        "  ## -- translation-report --  ",
+    ]:
+        out = collect(["c\n", line + "\n", "{}"])
+        assert out == [("text", "c\n"), ("report", "{}")], line
+
+
+def test_non_sentinel_comment_not_matched():
+    # An ordinary comment must NOT be treated as the sentinel.
+    out = collect(["# regular comment\n", "x = 1\n"])
+    assert out == [("text", "# regular comment\n"), ("text", "x = 1\n")]
+
+
+def test_parse_report_fallback_extracts_outermost_braces():
+    assert parse_report('noise before {"a": 1} noise after') == {"a": 1}
+
+
+def test_parse_report_fallback_strips_code_fence():
+    assert parse_report('```json\n{"a": 1}\n```') == {"a": 1}
