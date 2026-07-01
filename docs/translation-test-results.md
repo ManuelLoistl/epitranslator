@@ -102,8 +102,15 @@ and a dynamics-free paste should yield a flagged skeleton, not a confident model
 
 - **Done:** fix the `frequency_dependent` guidance (prompt assets). See the
   change log.
-- **Consider:** mark invented parameters as guesses; detect dynamics-free input
-  and emit a flagged skeleton rather than a fabricated model.
+- **Done (via the translation report):** invented parameters/compartments/
+  interventions are marked (`guessed` origin), and a dynamics-free source raises a
+  `high` / `no_dynamics` attention item.
+- **Won't do — flagged skeleton for dynamics-free pastes.** Considered emitting
+  an incomplete/stubbed `model.py` (instead of a fabricated one) when the source
+  has no dynamics. Decided against it: the target user is a disease modeler who
+  knows a run-wrapper/entry-point can't be faithfully translated without the AI
+  assuming values, and the report's `no_dynamics` + `guessed` flags already signal
+  that clearly. The advisory flag is sufficient; no need to also gate the code.
 - **Consider:** nudge the tool to use `add_demographic_group` so age structure
   isn't dropped when the source doesn't foreground it.
 - **Latent issues to watch** (noted during review): SIWR `W` marked
