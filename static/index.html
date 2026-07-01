@@ -100,6 +100,27 @@
   button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
   .status { color: var(--muted); font-size: 13px; }
   .status.error { color: #f78a8a; }
+  .report { border-top: 1px solid var(--border); background: var(--panel); }
+  .banner { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; }
+  .banner:empty { display: none; }
+  .att { border-radius: 6px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
+  .att .att-title { font-weight: 600; }
+  .att .att-detail { color: var(--muted); margin-top: 4px; display: none; }
+  .att.open .att-detail { display: block; }
+  .att.high { background: #3a2016; border: 1px solid var(--accent); }
+  .att.info { background: #1f2733; border: 1px solid var(--border); color: var(--muted); }
+  .audit-bar { padding: 8px 16px; font-size: 12px; color: var(--muted); cursor: pointer;
+               border-top: 1px solid var(--border); user-select: none; }
+  .audit-body { display: none; max-height: 40vh; overflow: auto; padding: 0 16px 12px; }
+  .audit-body.open { display: block; }
+  .audit-body h4 { font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  table.audit { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.audit td, table.audit th { text-align: left; padding: 4px 6px;
+               border-bottom: 1px solid var(--border); vertical-align: top; }
+  .badge { font-size: 10px; padding: 1px 6px; border-radius: 10px; }
+  .badge.guessed { background: var(--accent); color: #fff; }
+  .badge.derived, .badge.converted { background: #2b3645; color: var(--text); }
+  .badge.source { background: transparent; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -123,6 +144,11 @@
         <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
       </div>
       <pre id="output"></pre>
+      <div class="report" id="report" style="display:none;">
+        <div class="banner" id="banner"></div>
+        <div class="audit-bar" id="auditBar"></div>
+        <div class="audit-body" id="auditBody"></div>
+      </div>
     </section>
   </main>
 
@@ -155,11 +181,74 @@ function setRunning(running) {
   $("stop").style.display = running ? "inline-block" : "none";
 }
 
+function resetReport() {
+  $("report").style.display = "none";
+  $("banner").innerHTML = "";
+  $("auditBody").innerHTML = "";
+  $("auditBody").classList.remove("open");
+  $("auditBar").textContent = "";
+}
+
+function renderReport(r) {
+  const att = r.attention || [];
+  const banner = $("banner");
+  banner.innerHTML = "";
+  for (const a of att) {
+    const el = document.createElement("div");
+    el.className = "att " + (a.severity === "high" ? "high" : "info");
+    el.innerHTML = `<div class="att-title">${escapeHtml(a.title || "")}</div>` +
+                   `<div class="att-detail">${escapeHtml(a.detail || "")}</div>`;
+    el.addEventListener("click", () => el.classList.toggle("open"));
+    banner.appendChild(el);
+  }
+
+  const groups = [
+    ["Compartments", r.compartments || [], (x) => [x.source_name, x.schema_id]],
+    ["Parameters", r.parameters || [], (x) => [x.source_name, x.schema_name,
+      x.value !== undefined ? String(x.value) : "", x.unit || ""]],
+    ["Interventions", r.interventions || [], (x) => [x.source_name, x.schema_id,
+      (x.target_rates || []).join(", ")]],
+  ];
+  const total = groups.reduce((n, g) => n + g[1].length, 0);
+  const body = $("auditBody");
+  body.innerHTML = "";
+  for (const [name, rows] of groups) {
+    if (!rows.length) continue;
+    const h = document.createElement("h4");
+    h.textContent = name;
+    body.appendChild(h);
+    const table = document.createElement("table");
+    table.className = "audit";
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+      const cells = groups.find((g) => g[0] === name)[2](row);
+      const mapping = (cells[0] ? escapeHtml(cells[0]) + " → " : "") + escapeHtml(cells[1] || "");
+      const extra = cells.slice(2).filter(Boolean).map(escapeHtml).join(" · ");
+      tr.innerHTML =
+        `<td>${mapping}</td>` +
+        `<td>${extra}</td>` +
+        `<td><span class="badge ${row.origin || "source"}">${escapeHtml(row.origin || "source")}</span></td>` +
+        `<td>${escapeHtml(row.note || "")}</td>`;
+      table.appendChild(tr);
+    }
+    body.appendChild(table);
+  }
+
+  $("auditBar").textContent = `Translation audit (${total}) ▸`;
+  $("report").style.display = total || att.length ? "block" : "none";
+}
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
 async function translate() {
   const source_code = $("source").value.trim();
   if (!source_code) { setStatus("Paste some source code first.", true); return; }
 
   $("output").textContent = "";
+  resetReport();
   setStatus("Translating…");
   setRunning(true);
   controller = new AbortController();
@@ -188,6 +277,7 @@ async function translate() {
         const evt = JSON.parse(line.slice(5).trim());
         if (evt.error) { setStatus(evt.error, true); setRunning(false); return; }
         if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); setRunning(false); return; }
+        if (evt.report) { renderReport(evt.report); }
         if (evt.text) {
           $("output").textContent += evt.text;
           bytes += evt.text.length;
@@ -212,6 +302,10 @@ function setStatus(msg, isError) {
 
 $("translate").addEventListener("click", translate);
 $("stop").addEventListener("click", () => controller && controller.abort());
+$("auditBar").addEventListener("click", () => {
+  const open = $("auditBody").classList.toggle("open");
+  $("auditBar").textContent = $("auditBar").textContent.replace(/[▸▾]$/, open ? "▾" : "▸");
+});
 $("copy").addEventListener("click", () => {
   navigator.clipboard.writeText($("output").textContent);
   setStatus("Copied.");
