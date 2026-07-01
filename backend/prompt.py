@@ -23,6 +23,7 @@ from typing import List, Tuple
 _ASSETS = Path(__file__).resolve().parent.parent / "prompt_assets"
 _SYSTEM_PROMPT_FILE = _ASSETS / "system_prompt.md"
 _SCHEMA_FILE = _ASSETS / "target_schema.py"
+_OUTPUT_REPORT_FILE = _ASSETS / "output_report.md"
 _EXAMPLES_DIR = _ASSETS / "examples"
 
 # Map common source-model file extensions to a human-readable language name,
@@ -113,6 +114,10 @@ def build_system_prompt() -> str:
         rendered = "\n\n".join(block for _, _, block in examples)
         parts.append("## WORKED EXAMPLES\n\n" + rendered)
 
+    report_instr = _strip_html_comments(_read(_OUTPUT_REPORT_FILE))
+    if report_instr:
+        parts.append(report_instr)
+
     return "\n\n".join(p for p in parts if p).strip()
 
 
@@ -136,4 +141,6 @@ def assets_status() -> dict:
         "schema_present": _SCHEMA_FILE.is_file() and bool(_read(_SCHEMA_FILE).strip()),
         "example_count": len(examples),
         "example_names": [name for name, _, _ in examples],
+        "output_report_present": _OUTPUT_REPORT_FILE.is_file()
+        and bool(_strip_html_comments(_read(_OUTPUT_REPORT_FILE))),
     }

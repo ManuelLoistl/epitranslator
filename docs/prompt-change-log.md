@@ -132,11 +132,28 @@ All four re-runs compile. Verified 2026-07-01.
 
 ## 2026-07-01 — Planned: output-report addendum (translation-report feature)
 
-**Status: planned — not yet implemented.** Part of the "honest-parameter /
+**Status: implemented 2026-07-01.** Part of the "honest-parameter /
 dynamics-free handling" feature: a two-tier UI (an attention banner + an
-expandable panel auditing every parameter translation). This entry will be
-finalized with the exact before/after and verification once implemented. Design
+expandable panel auditing every parameter translation). Design
 spec: `docs/superpowers/specs/2026-07-01-translation-report-design.md`.
+
+### Change to `prompt_assets/system_prompt.md` ("What you output" section)
+
+Before:
+```
+Output **only** the complete contents of `model.py` — bare Python source,
+ready to save. No prose, no explanation, no markdown code fences. (The
+```
+
+After:
+```
+Output the complete contents of `model.py` — bare Python source, ready to
+save — then the translation-report addendum described at the end of this
+prompt (after a sentinel line). No prose or explanation around the code, and
+no markdown code fences around it. (The
+```
+
+New file `prompt_assets/output_report.md` added and appended by `build_system_prompt()`.
 
 Two prompt-asset changes, following the project rule of **preferring a new
 appended file over editing the existing prompt** (see
