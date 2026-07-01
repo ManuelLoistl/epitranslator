@@ -49,8 +49,11 @@ Subclass `Model` and implement:
    to the force of infection** (omitting it makes frequency-dependent FOI sum
    to zero — a silent bug).
 3. `schema.add_transmission_edge(...)` — one per compartment-to-compartment
-   movement whose flow is `rate * source` (mass action) or
-   `source * rate * sum(infective) / N` (set `frequency_dependent=True`).
+   movement. Its flow is either `rate * source` (a plain per-capita flow with
+   NO dependence on infectives — for progression/recovery like E→I, I→R) or,
+   with `frequency_dependent=True`, `source * rate * sum(infective) / N` (the
+   infection form). **Infection edges (S→E/S→I) must set
+   `frequency_dependent=True`** — see the mapping guidance below.
 4. `schema.add_intervention(...)` — optional; `target_rates=[...]` lists the
    edge variable names it reduces.
 5. `schema.set_travel_volume(...)`, demographics / contact matrix,
@@ -103,6 +106,13 @@ and skips edges whose compartments aren't active.
   `ValueType.PERCENTAGE` (0–100) is auto-divided by 100. A per-day rate is the
   default `ValueType.RATE`. Getting this wrong is the most common translation
   error (rate-vs-period inversion).
+- **Infection edges need `frequency_dependent=True`.**
+  `frequency_dependent=False` computes `rate * source` with **no** infective
+  coupling, so an S→I/S→E edge left `False` silently drops the `I` term and
+  decouples transmission from prevalence (the epidemic then runs even with zero
+  infectives). Set `True` for infection edges **even when the source writes
+  `β S I` without `/N`**. `False` is correct only for progression/recovery
+  flows. This ranks with rate-vs-period inversion as an easy silent error.
 - **Do not declare `_total` compartments by hand** for normal edge targets —
   the framework auto-generates them. (Declare them by hand only for manual
   flows whose target isn't an edge target.)
@@ -124,8 +134,18 @@ and skips edges whose compartments aren't active.
 - Map every rate/parameter to an edge `variable_name` (or an
   `add_disease_parameter` for constants that aren't a single edge rate),
   carrying the source's numeric default and the correct `value_type`.
-- Preserve whether transmission is frequency-dependent (`β S I / N`) vs
-  mass-action (`β S I`); set `frequency_dependent` accordingly.
+- **Infection edges must couple to infectives.** The schema offers only two
+  edge forms: `frequency_dependent=False` gives `rate * source` (NO dependence
+  on infectives), and `frequency_dependent=True` gives
+  `source * rate * sum(infective) / N`. There is **no** plain `β S I`
+  (density-dependent) edge form. So any susceptible→exposed/infected infection
+  edge must use `frequency_dependent=True` — **including when the source writes
+  `β S I` without a `/N`** (common when the population is normalized so N=1,
+  where `β S I` and `β S I / N` coincide). Use `frequency_dependent=False` only
+  for progression/recovery flows (e.g. E→I, I→R) that genuinely are
+  `rate * source`. If transmission is truly density-dependent (`β S I` with N
+  not held constant), compute the force of infection manually via `skip_edges`
+  + `_apply_flow`.
 - Carry over interventions/control measures as `schema.add_intervention(...)`
   with the right `target_rates`.
 - Keep the source's parameter names recognizable in `label`/`description` so a

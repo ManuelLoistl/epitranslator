@@ -53,8 +53,13 @@ class ParameterSchemaBuilder:
     def remove_compartment(self, id: str) -> None: ...  # also drops referencing edges
 
     # --- Transmission edges ---
-    # One per compartment-to-compartment flow of the form `rate * source` (mass
-    # action) or, with frequency_dependent=True, `source * rate * sum(infective)/N`.
+    # One per compartment-to-compartment flow. With frequency_dependent=False
+    # (default) the flow is `rate * source` — a plain per-capita flow with NO
+    # dependence on infectives (use for progression/recovery, e.g. E->I, I->R).
+    # With frequency_dependent=True the flow is `source * rate * sum(infective)/N`
+    # — the infection form; use this for every S->E / S->I infection edge.
+    # (There is no plain `rate * source * infective` density-dependent form; a
+    # normalized `beta*S*I` with N=1 is the frequency_dependent=True case.)
     # `variable_name` becomes self.<variable_name>. Numeric bounds are in NATIVE
     # units per `value_type`. default_min/default_max are the default uncertainty
     # band; min_value/max_value are hard limits.
