@@ -11,3 +11,9 @@ def test_system_prompt_includes_report_instruction():
 def test_assets_status_reports_output_report_present():
     status = assets_status()
     assert status["output_report_present"] is True
+
+
+def test_user_message_does_not_forbid_the_report():
+    from backend.prompt import build_user_message
+    msg = build_user_message("print(1)")
+    assert "only the bare" not in msg.lower()

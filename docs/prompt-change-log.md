@@ -132,7 +132,14 @@ All four re-runs compile. Verified 2026-07-01.
 
 ## 2026-07-01 — Planned: output-report addendum (translation-report feature)
 
-**Status: implemented 2026-07-01.** Part of the "honest-parameter /
+**Status: implemented 2026-07-01.**
+
+**Implementation note:** `backend/prompt.py`'s `build_user_message()` was also 
+softened to remove the "Output **only** the bare translated Python code" 
+constraint (changed to "Output the bare translated Python code, then the 
+translation-report addendum described in the instructions") to avoid suppressing 
+the report addendum when the model considers both the system prompt and the user 
+message. Part of the "honest-parameter /
 dynamics-free handling" feature: a two-tier UI (an attention banner + an
 expandable panel auditing every parameter translation). Design
 spec: `docs/superpowers/specs/2026-07-01-translation-report-design.md`.

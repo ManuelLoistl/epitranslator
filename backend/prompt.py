@@ -127,7 +127,8 @@ def build_user_message(source_code: str, source_language: str | None = None) -> 
     header = (
         f"Translate the following disease model"
         + (f" (source language: {lang})" if lang else "")
-        + " into the target schema. Output only the bare translated Python code."
+        + " into the target schema. Output the bare translated Python code,"
+        + " then the translation-report addendum described in the instructions."
     )
     return f"{header}\n\n```\n{source_code.rstrip()}\n```"
 
