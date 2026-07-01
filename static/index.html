@@ -109,13 +109,12 @@
   .filebar { display:flex; align-items:center; gap:8px; padding:8px 16px;
              border-bottom:1px solid var(--border); }
   .mini { padding:4px 10px; font-size:12px; font-weight:500; border-radius:6px; }
-  .hint { color: var(--muted); font-size:12px; cursor:help; margin-left:auto; }
   .files { flex:1; overflow:auto; display:flex; flex-direction:column; min-height:0; }
   .fileblock { display:flex; flex-direction:column; border-bottom:1px solid var(--border);
-               min-height:0; }
+               flex-shrink:0; }
   .fileblock .fb-head { display:flex; gap:8px; align-items:center; padding:6px 16px 0; }
   .fileblock .fb-head input { flex:1; }
-  .fileblock textarea { min-height:120px; }
+  .fileblock textarea { min-height:360px; }
   .fb-remove { background:transparent; border:0; color:var(--muted);
                cursor:pointer; font-size:16px; padding:0 6px; }
   .status { color: var(--muted); font-size: 13px; }
@@ -145,28 +144,33 @@
   .badge.guessed { background: var(--accent); color: #fff; }
   .badge.derived, .badge.converted { background: #2b3645; color: var(--text); }
   .badge.source { background: transparent; color: var(--muted); }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+           display:flex; align-items:center; justify-content:center; z-index:50; padding:24px; }
+  .modal[hidden] { display:none; }
+  .modal-box { background: var(--panel); border:1px solid var(--border); border-radius:10px;
+               width: min(900px, 100%); max-height: 85vh; display:flex; flex-direction:column; min-height:0; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
+                padding:10px 16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
+  .modal-box pre { padding:16px; overflow:auto; white-space:pre; }
 </style>
 </head>
 <body>
   <header>
     <h1>Disease Model Translator</h1>
     <span class="meta" id="meta">loading config…</span>
+    <button class="secondary mini" id="schemaBtn" style="margin-left:auto;">Schema reference</button>
   </header>
 
   <main>
     <section class="pane">
       <div class="pane-head">
         <label>Source model</label>
-        <span style="display:flex; gap:8px; align-items:center;">
-          <select id="category" title="Disease category (optional hint)"></select>
-          <input type="text" id="lang" placeholder="language (optional)" />
-        </span>
+        <select id="category" title="Disease category (optional hint)"></select>
       </div>
       <div class="filebar">
         <button class="secondary mini" id="addFile">+ Add file</button>
         <label class="secondary mini" for="upload" style="cursor:pointer;">Upload files</label>
         <input type="file" id="upload" multiple hidden />
-        <span class="hint" id="fileHint" title="Include the model definition and the files with parameter values / initial conditions. Skip run scripts, plots, and tests. Export binary data (.rds/.mat/.npy) to text first. A contact matrix mainly conveys age structure.">what to include ⓘ</span>
       </div>
       <div id="files" class="files"></div>
     </section>
@@ -174,7 +178,10 @@
     <section class="pane">
       <div class="pane-head">
         <label>Translated (target schema)</label>
-        <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
+        <span style="display:flex; gap:8px;">
+          <button class="secondary" id="download" style="padding:4px 10px;font-size:12px;font-weight:500;">Download</button>
+          <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
+        </span>
       </div>
       <pre id="output"></pre>
     </section>
@@ -186,6 +193,19 @@
     <div class="audit-bar" id="auditBar"></div>
     <div class="audit-body" id="auditBody"></div>
   </section>
+
+  <div class="modal" id="schemaModal" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <span>Target schema reference — the contract your translated model.py conforms to</span>
+        <span style="display:flex; gap:8px;">
+          <button class="secondary mini" id="schemaDownload">Download</button>
+          <button class="secondary mini" id="schemaClose">Close</button>
+        </span>
+      </div>
+      <pre id="schemaContent"></pre>
+    </div>
+  </div>
 
   <footer>
     <button id="translate">Translate</button>
@@ -215,6 +235,7 @@ async function loadConfig() {
       sel.appendChild(opt);
     }
     if (typeof c.max_files === "number") { MAX_FILES = c.max_files; refreshAddState(); }
+    if (pendingCategory) { $("category").value = pendingCategory; pendingCategory = null; }
   } catch (e) {
     $("meta").textContent = "could not load config";
   }
@@ -236,6 +257,7 @@ function addFileBlock(filename = "", content = "") {
     block.remove();
     if ($("files").children.length === 0) addFileBlock();
     refreshAddState();
+    scheduleSave();
   });
   block.querySelector(".fb-content").addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
@@ -254,6 +276,40 @@ function collectFiles() {
     filename: b.querySelector(".fb-name").value.trim(),
     content: b.querySelector(".fb-content").value,
   })).filter((f) => f.content.trim());
+}
+
+// --- Browser-only session persistence (localStorage) ------------------------
+const LS_KEY = "mt.session.v1";
+let pendingCategory = null;   // restored before the category options exist
+let saveTimer = null;
+
+function collectFilesRaw() {   // keep every block (incl. partial) for persistence
+  return [...$("files").children].map((b) => ({
+    filename: b.querySelector(".fb-name").value,
+    content: b.querySelector(".fb-content").value,
+  }));
+}
+function saveSession() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      files: collectFilesRaw(),
+      category: $("category").value,
+      output: $("output").textContent,
+    }));
+  } catch (e) { /* quota / disabled — ignore */ }
+}
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveSession, 500); }
+function restoreSession() {
+  let s;
+  try { s = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) { s = null; }
+  if (!s) return false;
+  $("files").innerHTML = "";
+  const blocks = (s.files && s.files.length) ? s.files : [{ filename: "", content: "" }];
+  for (const f of blocks.slice(0, MAX_FILES)) addFileBlock(f.filename || "", f.content || "");
+  if ($("files").children.length === 0) addFileBlock();
+  $("output").textContent = s.output || "";
+  pendingCategory = s.category || null;
+  return true;
 }
 
 function setRunning(running) {
@@ -348,7 +404,6 @@ async function translate() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         files,
-        source_language: $("lang").value.trim(),
         category: $("category").value,
       }),
       signal: controller.signal,
@@ -386,6 +441,7 @@ async function translate() {
     else setStatus("Request failed: " + e.message, true);
   } finally {
     setRunning(false);
+    saveSession();
   }
 }
 
@@ -413,15 +469,54 @@ $("upload").addEventListener("change", (e) => {
   files.forEach((file, i) => {
     if (i >= free) { skipped++; return; }
     const reader = new FileReader();
-    reader.onload = () => addFileBlock(file.name, reader.result);
+    reader.onload = () => { addFileBlock(file.name, reader.result); scheduleSave(); };
     reader.readAsText(file);
   });
   if (skipped) setStatus(`skipped ${skipped} (max ${MAX_FILES})`, true);
   e.target.value = "";
 });
 
-addFileBlock();
+// --- Downloads ---------------------------------------------------------------
+function downloadText(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+$("download").addEventListener("click", () => {
+  const t = $("output").textContent;
+  if (!t.trim()) { setStatus("Nothing to download yet.", true); return; }
+  downloadText("model.py", t, "text/x-python");
+});
+
+// --- Schema reference doc ----------------------------------------------------
+let schemaText = "";
+async function loadSchemaDoc() {
+  try { const r = await fetch("/api/docs"); const j = await r.json(); schemaText = j.schema || ""; }
+  catch (e) { schemaText = ""; }
+}
+$("schemaBtn").addEventListener("click", async () => {
+  if (!schemaText) await loadSchemaDoc();
+  $("schemaContent").textContent = schemaText || "Schema reference unavailable.";
+  $("schemaModal").hidden = false;
+});
+$("schemaClose").addEventListener("click", () => { $("schemaModal").hidden = true; });
+$("schemaModal").addEventListener("click", (e) => {
+  if (e.target === $("schemaModal")) $("schemaModal").hidden = true;
+});
+$("schemaDownload").addEventListener("click", () => {
+  if (schemaText) downloadText("target_schema.py", schemaText, "text/x-python");
+});
+
+// --- Persistence wiring ------------------------------------------------------
+$("files").addEventListener("input", scheduleSave);
+$("category").addEventListener("change", saveSession);
+
+// --- Init --------------------------------------------------------------------
+if (!restoreSession()) addFileBlock();
 loadConfig();
+loadSchemaDoc();
 </script>
 </body>
 </html>

@@ -101,11 +101,18 @@ Plot the run's timeseries (S/E/I/R, …) with a small JS chart.
 - Low effort *if* the run output has a predictable shape (see Linchpin).
 - Do last; nice-to-have.
 
-### 7. Browser-only session persistence — **S**
+### 7. Browser-only session persistence — **S** — ✅ shipped 2026-07-01
+> **Shipped.** A `localStorage` snapshot (`mt.session.v1`) of the file blocks,
+> language, category, and last output — saved on edit (debounced) and on
+> translate, restored on load. No auth, no DB, no backend state.
+
 Save last source / category / translation / edits in `localStorage` /
 IndexedDB. No auth, no DB, no backend state. Correct scope for a test tool.
 
-### 8. Output handoff — **S**
+### 8. Output handoff — **S** — ✅ shipped 2026-07-01
+> **Shipped.** A Download button beside Copy saves the output pane as
+> `model.py` (client-side Blob). Automated GitHub push stays skipped.
+
 - Download button (in addition to copy) — trivial.
 - User commits the file to GitHub themselves. **Automated GitHub push is
   skipped** (re-adds the auth we're avoiding; download is enough).
@@ -119,7 +126,12 @@ After a user pastes their disease model, make it easy to add interventions.
 - Fuller version (later, if needed): an actual intervention builder/picker that
   injects intervention definitions into the translation — **M**, only on demand.
 
-### 10. In-app documentation (view + download) — **S**
+### 10. In-app documentation (view + download) — **S** — ◐ partial (2026-07-01)
+> **Partial.** A "Schema reference" button opens the target schema
+> (`GET /api/docs`, served from `prompt_assets/target_schema.py` — one source of
+> truth) in a modal, with its own Download. This is the highest-value doc and the
+> basis for item 9. Remaining: broader project docs / how-to content if wanted.
+
 Make the project/schema documentation available inside the app — viewable in the
 UI and downloadable. Powers item 9 (the intervention guidance) and general
 onboarding. Source the docs from the repo so there's one source of truth.

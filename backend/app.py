@@ -52,6 +52,13 @@ async def health() -> dict:
     }
 
 
+@app.get("/api/docs")
+async def docs() -> dict:
+    """In-app documentation. Currently the target schema reference, served from
+    the same file that feeds the prompt (one source of truth)."""
+    return {"schema": prompt_assets.schema_reference()}
+
+
 @app.post("/api/translate")
 async def translate(payload: dict) -> StreamingResponse:
     """

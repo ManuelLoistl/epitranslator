@@ -200,6 +200,15 @@ def build_report_user_message(
     )
 
 
+def schema_reference() -> str:
+    """The target schema reference text, for the in-app docs viewer.
+
+    Reads the same `target_schema.py` that feeds the system prompt, so the
+    in-app docs and the translation contract stay one source of truth.
+    """
+    return _read(_SCHEMA_FILE).rstrip()
+
+
 def assets_status() -> dict:
     """Lightweight introspection for the /api/health endpoint and the UI."""
     examples = _load_examples()

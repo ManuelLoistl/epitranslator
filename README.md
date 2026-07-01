@@ -45,6 +45,12 @@ and intervention with its provenance (`source` / `converted` / `derived` /
 `guessed`). The model appends this report after the code; if it is absent the
 pane simply shows the code, unchanged.
 
+The output can be **copied or downloaded** as `model.py`. A **Schema reference**
+button (top right) opens the target schema in a viewer (also downloadable),
+served from the same file that feeds the prompt. Your last source, category,
+language, and translation are **kept in the browser** (`localStorage`) and
+restored on reload — no account, no server state.
+
 ## Your materials live in `prompt_assets/`
 
 Drop your real prompt, schema, and examples into these files — no Python edits
