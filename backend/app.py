@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend import categories as categories_mod
 from backend import prompt as prompt_assets
 from backend import translator
 
@@ -41,6 +42,7 @@ async def health() -> dict:
         "status": "ok",
         "config": translator.config_summary(),
         "assets": prompt_assets.assets_status(),
+        "categories": categories_mod.public_categories(),
     }
 
 
@@ -55,6 +57,7 @@ async def translate(payload: dict) -> StreamingResponse:
     """
     source_code = (payload.get("source_code") or "").strip()
     source_language = (payload.get("source_language") or "").strip() or None
+    category = (payload.get("category") or "").strip() or None
 
     def event_stream():
         if not source_code:
@@ -68,7 +71,9 @@ async def translate(payload: dict) -> StreamingResponse:
         try:
             # 1. Stream the bare model.py to the code pane (code only).
             code_parts = []
-            for chunk in translator.stream_translation(source_code, source_language):
+            for chunk in translator.stream_translation(
+                source_code, source_language, category
+            ):
                 code_parts.append(chunk)
                 yield _sse({"text": chunk})
             # 2. Separate structured call for the report; emit it if we got one.

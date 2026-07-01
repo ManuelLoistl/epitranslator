@@ -61,6 +61,14 @@
     font-size: 12px;
     width: 140px;
   }
+  .pane-head select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
   textarea, pre {
     flex: 1;
     margin: 0;
@@ -137,7 +145,10 @@
     <section class="pane">
       <div class="pane-head">
         <label for="source">Source model</label>
-        <input type="text" id="lang" placeholder="language (optional)" />
+        <span style="display:flex; gap:8px; align-items:center;">
+          <select id="category" title="Disease category (optional hint)"></select>
+          <input type="text" id="lang" placeholder="language (optional)" />
+        </span>
       </div>
       <textarea id="source" placeholder="Paste the disease model source code here…" spellcheck="false"></textarea>
     </section>
@@ -177,6 +188,13 @@ async function loadConfig() {
     $("meta").innerHTML =
       `model <code>${c.model}</code> · effort ${c.effort} · thinking ${c.thinking}` +
       ` · ${a.example_count} example(s)${keyWarn}`;
+    const sel = $("category");
+    for (const cat of (j.categories || [])) {
+      const opt = document.createElement("option");
+      opt.value = cat.id;
+      opt.textContent = cat.label;
+      sel.appendChild(opt);
+    }
   } catch (e) {
     $("meta").textContent = "could not load config";
   }
@@ -272,7 +290,11 @@ async function translate() {
     const resp = await fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_code, source_language: $("lang").value.trim() }),
+      body: JSON.stringify({
+        source_code,
+        source_language: $("lang").value.trim(),
+        category: $("category").value,
+      }),
       signal: controller.signal,
     });
     const reader = resp.body.getReader();

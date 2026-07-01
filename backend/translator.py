@@ -189,6 +189,7 @@ def api_key_present() -> bool:
 def stream_translation(
     source_code: str,
     source_language: str | None = None,
+    category: str | None = None,
 ) -> Iterator[str]:
     """Yield translated code as text chunks. Raises on API/auth errors."""
     client = _get_client()
@@ -201,7 +202,7 @@ def stream_translation(
             "cache_control": {"type": "ephemeral"},
         }
     ]
-    user = build_user_message(source_code, source_language)
+    user = build_user_message(source_code, source_language, category)
 
     kwargs = {
         "model": MODEL,

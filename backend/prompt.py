@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 from typing import List, Tuple
 
+from backend.categories import hint_for
+
 # prompt_assets/ lives next to the repo root (one level up from backend/).
 _ASSETS = Path(__file__).resolve().parent.parent / "prompt_assets"
 _SYSTEM_PROMPT_FILE = _ASSETS / "system_prompt.md"
@@ -117,7 +119,11 @@ def build_system_prompt() -> str:
     return "\n\n".join(p for p in parts if p).strip()
 
 
-def build_user_message(source_code: str, source_language: str | None = None) -> str:
+def build_user_message(
+    source_code: str,
+    source_language: str | None = None,
+    category: str | None = None,
+) -> str:
     """Build the user turn: the source model to translate."""
     lang = (source_language or "").strip()
     header = (
@@ -125,7 +131,16 @@ def build_user_message(source_code: str, source_language: str | None = None) -> 
         + (f" (source language: {lang})" if lang else "")
         + " into the target schema. Output only the bare translated Python code."
     )
-    return f"{header}\n\n```\n{source_code.rstrip()}\n```"
+    parts = [f"{header}\n\n```\n{source_code.rstrip()}\n```"]
+    hint = hint_for(category)
+    if hint:
+        parts.append(
+            f"Disease category hint: this is {hint}. Use this only to "
+            "disambiguate genuinely ambiguous cases; the source code is "
+            "authoritative — do not add compartments, parameters, or mechanisms "
+            "the source does not contain."
+        )
+    return "\n\n".join(parts)
 
 
 # --- Translation report (separate structured call) --------------------------

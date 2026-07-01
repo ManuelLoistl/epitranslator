@@ -34,7 +34,14 @@ Effort labels: **S** = small (hours), **M** = moderate (a day-ish), **L** = larg
 > intent behind items #4 (validation) and #10 (in-app docs). Spec:
 > `docs/superpowers/specs/2026-07-01-translation-report-design.md`.
 
-### 1. Category picker on submit — **S**
+### 1. Category picker on submit — **S** — ✅ shipped 2026-07-01
+> **Shipped.** The list lives in `backend/categories.py` (the schema defines no
+> category taxonomy, so open-question #3 is resolved — there is nothing to sync
+> with). Optional, default "Unspecified"; the selection feeds a *disambiguation
+> hint* into the user message (source stays authoritative). "Stored with the
+> output" deferred to item #7. Spec:
+> `docs/superpowers/specs/2026-07-01-category-picker-design.md`.
+
 On submit, user chooses from a fixed list (respiratory, vector-borne,
 waterborne, …). Feeds into the translation prompt so the translation is
 category-aware; stored with the output.
