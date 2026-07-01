@@ -14,10 +14,8 @@ hand is the schema declaration and the ODE/stochastic `derivative()`.
 
 ## What you output
 
-Output the complete contents of `model.py` — bare Python source, ready to
-save — then the translation-report addendum described at the end of this
-prompt (after a sentinel line). No prose or explanation around the code, and
-no markdown code fences around it. (The
+Output **only** the complete contents of `model.py` — bare Python source,
+ready to save. No prose, no explanation, no markdown code fences. (The
 companion `main.py` is fixed boilerplate generated separately, and
 `example-config.json` is auto-generated from the schema — do not emit them.)
 

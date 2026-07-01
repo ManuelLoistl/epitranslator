@@ -215,3 +215,45 @@ code pane. Hardening, so the report can never appear as code:
   stray prefix/fence around valid JSON still parses.
 - **UI:** the report moved to a full-width drawer below both panes (code pane holds
   only code).
+
+---
+
+## 2026-07-01 — Re-architecture: translation report via a separate structured call
+
+**Status: implemented 2026-07-01.** Replaces the in-stream "sentinel + JSON after
+the code" approach (the two entries above) — that proved unreliable: the model
+would sometimes paraphrase the sentinel and write the report as `#` comment prose,
+which then leaked into the code pane (observed twice in the browser). Prompt
+wording could not make single-call emission reliable.
+
+**New design — two calls:**
+
+1. **Code call** — unchanged from the original: produces **only** the bare
+   `model.py`. The report instructions were removed from this call entirely, so
+   the code output can never contain a report by construction. Reverts:
+   - `prompt_assets/system_prompt.md` "What you output" restored to the original
+     *"Output **only** the complete contents of `model.py`…"* (undoes the earlier
+     softening).
+   - `backend/prompt.py` `build_system_prompt()` no longer appends the report
+     file; `build_user_message()` restored to *"Output only the bare translated
+     Python code."*
+2. **Report call** (new, `backend/translator.py::generate_report`) — a second
+   call that reads the source + generated `model.py` and returns the report as a
+   JSON object via **structured outputs** (`output_config.format` with a
+   `json_schema`). The schema guarantees a valid object matching the report shape
+   (attention / compartments / parameters / interventions with `origin`
+   provenance); the model cannot emit prose or leak into code. Runs at low effort
+   on a configurable model (`TRANSLATOR_REPORT_MODEL`, default = translation model).
+
+**Prompt-asset change:** `prompt_assets/output_report.md` was rewritten from
+"emit a sentinel + JSON after the code" formatting rules into **classification
+instructions** for the report call (what `origin`/`severity`/`category` mean, what
+to include). It is no longer part of the system prompt; it is the report call's
+system prompt (`build_report_system_prompt()`).
+
+**Removed:** `backend/report.py` (sentinel splitter + tolerant regex) and its
+tests — obsolete now that code and report come from separate calls.
+
+**Verified 2026-07-01 (live):** epicookbook SIR and `mpox_run.R` (wrong-file) both
+produce a valid report with **zero report text in the code pane** (structurally
+impossible), code compiles; `mpox_run` correctly flags `high`/`no_dynamics`.

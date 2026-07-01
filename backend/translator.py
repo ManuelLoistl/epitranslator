@@ -15,13 +15,22 @@ Design notes (grounded in the current Anthropic API):
 """
 from __future__ import annotations
 
+import json
+import logging
 import os
 import re
-from typing import Iterator
+from typing import Iterator, Optional
 
 import anthropic
 
-from backend.prompt import build_system_prompt, build_user_message
+logger = logging.getLogger("model-translator")
+
+from backend.prompt import (
+    build_system_prompt,
+    build_user_message,
+    build_report_system_prompt,
+    build_report_user_message,
+)
 
 # Matches a markdown code-fence line (```), optionally with a language tag.
 _FENCE_RE = re.compile(r"^\s*```[\w+-]*\s*$")
@@ -76,6 +85,92 @@ MAX_TOKENS = int(os.environ.get("TRANSLATOR_MAX_TOKENS", "32000"))
 # Adaptive thinking helps translation fidelity; disable with THINKING=off.
 THINKING_ENABLED = os.environ.get("TRANSLATOR_THINKING", "adaptive").lower() != "off"
 
+# The translation report is a separate, cheaper structured call.
+REPORT_MODEL = os.environ.get("TRANSLATOR_REPORT_MODEL", MODEL)
+REPORT_EFFORT = os.environ.get("TRANSLATOR_REPORT_EFFORT", "low")
+REPORT_MAX_TOKENS = int(os.environ.get("TRANSLATOR_REPORT_MAX_TOKENS", "8000"))
+
+# JSON schema the report call is constrained to (structured outputs). Every
+# object sets additionalProperties=False and lists its required keys, per the
+# structured-outputs rules. `value` is a string to avoid number/string unions.
+_ORIGIN = {"type": "string", "enum": ["source", "converted", "derived", "guessed"]}
+_ELEMENT_REQUIRED = ["origin", "note"]
+REPORT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["attention", "compartments", "parameters", "interventions"],
+    "properties": {
+        "attention": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["severity", "category", "title", "detail"],
+                "properties": {
+                    "severity": {"type": "string", "enum": ["high", "info"]},
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "no_dynamics",
+                            "invented",
+                            "dropped_structure",
+                            "model_mismatch",
+                            "ambiguity",
+                        ],
+                    },
+                    "title": {"type": "string"},
+                    "detail": {"type": "string"},
+                },
+            },
+        },
+        "compartments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["schema_id", "source_name", "origin", "note"],
+                "properties": {
+                    "schema_id": {"type": "string"},
+                    "source_name": {"type": ["string", "null"]},
+                    "origin": _ORIGIN,
+                    "note": {"type": "string"},
+                },
+            },
+        },
+        "parameters": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["schema_name", "source_name", "value", "unit", "origin", "note"],
+                "properties": {
+                    "schema_name": {"type": "string"},
+                    "source_name": {"type": ["string", "null"]},
+                    "value": {"type": "string"},
+                    "unit": {"type": "string"},
+                    "origin": _ORIGIN,
+                    "note": {"type": "string"},
+                },
+            },
+        },
+        "interventions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["schema_id", "source_name", "target_rates", "origin", "note"],
+                "properties": {
+                    "schema_id": {"type": "string"},
+                    "source_name": {"type": ["string", "null"]},
+                    "target_rates": {"type": "array", "items": {"type": "string"}},
+                    "origin": _ORIGIN,
+                    "note": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
 _client: anthropic.Anthropic | None = None
 
 
@@ -124,6 +219,49 @@ def stream_translation(
                 yield text
 
     yield from _strip_code_fences(_raw())
+
+
+def generate_report(
+    source_code: str,
+    model_code: str,
+    source_language: str | None = None,
+) -> Optional[dict]:
+    """Second call: read source + generated model.py, return the report as a dict.
+
+    Uses structured outputs (``output_config.format`` with a JSON schema) so the
+    response is guaranteed to be a single JSON object matching REPORT_SCHEMA — it
+    cannot leak into the code and cannot be prose. Returns None on any failure so
+    the translation still succeeds without a report.
+    """
+    if not model_code.strip():
+        return None
+    try:
+        client = _get_client()
+        resp = client.messages.create(
+            model=REPORT_MODEL,
+            max_tokens=REPORT_MAX_TOKENS,
+            system=build_report_system_prompt(),
+            messages=[
+                {
+                    "role": "user",
+                    "content": build_report_user_message(
+                        source_code, model_code, source_language
+                    ),
+                }
+            ],
+            output_config={
+                "effort": REPORT_EFFORT,
+                "format": {"type": "json_schema", "schema": REPORT_SCHEMA},
+            },
+        )
+        text = next((b.text for b in resp.content if b.type == "text"), None)
+        if not text:
+            return None
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except Exception:  # never let the report break a successful translation
+        logger.exception("report generation failed")
+        return None
 
 
 def config_summary() -> dict:

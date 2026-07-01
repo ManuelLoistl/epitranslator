@@ -114,10 +114,6 @@ def build_system_prompt() -> str:
         rendered = "\n\n".join(block for _, _, block in examples)
         parts.append("## WORKED EXAMPLES\n\n" + rendered)
 
-    report_instr = _strip_html_comments(_read(_OUTPUT_REPORT_FILE))
-    if report_instr:
-        parts.append(report_instr)
-
     return "\n\n".join(p for p in parts if p).strip()
 
 
@@ -127,10 +123,36 @@ def build_user_message(source_code: str, source_language: str | None = None) -> 
     header = (
         f"Translate the following disease model"
         + (f" (source language: {lang})" if lang else "")
-        + " into the target schema. Output the bare translated Python code,"
-        + " then the translation-report addendum described in the instructions."
+        + " into the target schema. Output only the bare translated Python code."
     )
     return f"{header}\n\n```\n{source_code.rstrip()}\n```"
+
+
+# --- Translation report (separate structured call) --------------------------
+# The report is produced by a SECOND model call that reads the source + the
+# generated model.py and returns a structured JSON object (schema-enforced).
+# This keeps the report entirely out of the code stream — the code call above
+# stays "bare model.py only".
+
+def build_report_system_prompt() -> str:
+    """Instructions for the report call: how to classify the translation."""
+    return _strip_html_comments(_read(_OUTPUT_REPORT_FILE))
+
+
+def build_report_user_message(
+    source_code: str,
+    model_code: str,
+    source_language: str | None = None,
+) -> str:
+    """Build the report call's user turn: the source and the translated model.py."""
+    lang = (source_language or "").strip()
+    lang_note = f" (source language: {lang})" if lang else ""
+    return (
+        f"SOURCE MODEL{lang_note}:\n\n```\n{source_code.rstrip()}\n```\n\n"
+        "TRANSLATED model.py:\n\n"
+        f"```python\n{model_code.rstrip()}\n```\n\n"
+        "Produce the translation report as a JSON object per the instructions."
+    )
 
 
 def assets_status() -> dict:
