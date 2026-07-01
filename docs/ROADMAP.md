@@ -49,7 +49,16 @@ category-aware; stored with the output.
   builder. Optionally drive the list from the same place the schema defines
   disease types so it stays in sync.
 
-### 2. Multiple input files → single consolidated output — **S**
+### 2. Multiple input files → single consolidated output — **S** — ✅ shipped 2026-07-01
+> **Shipped.** Files are submitted as a set (upload or paste into named blocks),
+> concatenated with `=== file: <name> (<Lang>) ===` headers into one source, and
+> run through the existing translation + report pipeline (single `model.py` out).
+> A single unnamed paste stays byte-identical to before. `MAX_FILES = 10`,
+> enforced in the backend and mirrored to the UI via `/api/health`. Include/skip
+> guidance lives in a new appended prompt-asset file (`multi_file_guidance.md`)
+> plus a UI hint. Multi-file *output* remains deferred. Spec:
+> `docs/superpowers/specs/2026-07-01-multi-file-input-design.md`.
+
 Let a model that spans several files be submitted as a set.
 - Work: UI to add several named files (add-file boxes or multi-select upload);
   backend takes a list of `{filename, content}`; prompt builder concatenates them

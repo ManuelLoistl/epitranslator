@@ -23,6 +23,10 @@ logger = logging.getLogger("model-translator")
 
 app = FastAPI(title="Disease Model Translator", version="0.1.0")
 
+# Cap on how many files one translation request may carry. Enforced here
+# (authoritative) and surfaced via /api/health so the UI mirrors it.
+MAX_FILES = 10
+
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
@@ -38,9 +42,11 @@ async def index() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict:
+    config = translator.config_summary()
+    config["max_files"] = MAX_FILES
     return {
         "status": "ok",
-        "config": translator.config_summary(),
+        "config": config,
         "assets": prompt_assets.assets_status(),
         "categories": categories_mod.public_categories(),
     }
@@ -51,15 +57,24 @@ async def translate(payload: dict) -> StreamingResponse:
     """
     Stream a translation.
 
-    Body: { "source_code": "...", "source_language": "R" (optional) }
+    Body: { "files": [{"filename": "...", "content": "..."}], ... } or the
+    legacy { "source_code": "..." }; plus "source_language"/"category" (optional).
     Response: SSE stream of {"text": "..."} events, then {"done": true},
     or {"error": "..."} on failure.
     """
-    source_code = (payload.get("source_code") or "").strip()
+    files = payload.get("files")
+    too_many = isinstance(files, list) and len(files) > MAX_FILES
+    if isinstance(files, list) and files:
+        source_code = prompt_assets.render_source_files(files)
+    else:
+        source_code = (payload.get("source_code") or "").strip()
     source_language = (payload.get("source_language") or "").strip() or None
     category = (payload.get("category") or "").strip() or None
 
     def event_stream():
+        if too_many:
+            yield _sse({"error": f"Too many files (max {MAX_FILES})."})
+            return
         if not source_code:
             yield _sse({"error": "No source code provided."})
             return

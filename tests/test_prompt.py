@@ -71,3 +71,52 @@ def test_health_includes_categories():
     body = r.json()
     assert "categories" in body
     assert body["categories"][0] == {"id": "unspecified", "label": "Unspecified"}
+
+
+# --- render_source_files -----------------------------------------------------
+
+def test_render_single_unnamed_is_verbatim():
+    from backend.prompt import render_source_files
+    assert render_source_files([{"filename": "", "content": "print(1)\n"}]) == "print(1)\n"
+
+
+def test_render_single_named_has_header():
+    from backend.prompt import render_source_files
+    out = render_source_files([{"filename": "model.R", "content": "x<-1"}])
+    assert "=== file: model.R (R) ===" in out
+    assert "x<-1" in out
+
+
+def test_render_multiple_files_in_order_with_langs():
+    from backend.prompt import render_source_files
+    out = render_source_files([
+        {"filename": "model.R", "content": "dyn"},
+        {"filename": "params.csv", "content": "beta,0.3"},
+    ])
+    assert out.index("model.R") < out.index("params.csv")
+    assert "=== file: model.R (R) ===" in out
+    assert "=== file: params.csv (CSV) ===" in out
+
+
+def test_render_drops_blank_and_empty():
+    from backend.prompt import render_source_files
+    assert render_source_files([]) == ""
+    assert render_source_files([{"filename": "a.py", "content": "   "}]) == ""
+
+
+def test_render_unknown_extension_omits_lang():
+    from backend.prompt import render_source_files
+    out = render_source_files([{"filename": "notes", "content": "hi"},
+                               {"filename": "b.py", "content": "z"}])
+    assert "=== file: notes ===" in out  # no "(...)" when no known ext
+
+
+# --- appended multi-file guidance -------------------------------------------
+
+def test_system_prompt_includes_multifile_guidance():
+    p = build_system_prompt().lower()
+    assert "several files" in p or "multiple files" in p
+
+
+def test_assets_status_reports_multifile_present():
+    assert assets_status()["multi_file_guidance_present"] is True

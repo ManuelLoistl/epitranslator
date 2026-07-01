@@ -257,3 +257,40 @@ tests — obsolete now that code and report come from separate calls.
 **Verified 2026-07-01 (live):** epicookbook SIR and `mpox_run.R` (wrong-file) both
 produce a valid report with **zero report text in the code pane** (structurally
 impossible), code compiles; `mpox_run` correctly flags `high`/`no_dynamics`.
+
+---
+
+## 2026-07-01 — New appended file: multi-file input guidance
+
+**Status: implemented 2026-07-01.** Part of the multi-file input feature
+(roadmap #2). Design spec:
+`docs/superpowers/specs/2026-07-01-multi-file-input-design.md`.
+
+**No edits to existing prompt files.** Following the project prompt-stability
+rule (see [../CLAUDE.md](../CLAUDE.md)), this is a **new appended prompt-asset
+file only**.
+
+### New file `prompt_assets/multi_file_guidance.md`
+
+Appended to the system prompt as its final section by `build_system_prompt()`
+(after the worked examples). It tells the model, **when the source is supplied
+as several files** (each under a `=== file: ... ===` header), to:
+
+- treat the files as one model, with the dynamics file authoritative for
+  structure;
+- take numeric values from parameter/data files instead of guessing defaults;
+- not invent structure from a dynamics-free run wrapper / entry-point / config;
+- read a contact matrix as *age/group structure* (→ `add_demographic_group`),
+  not transcribe its cell values (the schema uses built-in Prem 2021 matrices,
+  with `set_contact_override` for specific deviations).
+
+**Purpose / rationale:** the 14-model test found that parameters often live in
+separate files, so a single paste has structure but no numbers and the tool
+fills plausible defaults (test-results observation #3). Multi-file input lets the
+modeler supply those files; this guidance steers the model to use the supplied
+numbers and to keep the contact-matrix expectation honest. Phrased conditionally
+("when several files are provided…") so it is a harmless no-op for single-file
+pastes and the cached system prompt stays stable.
+
+**Wiring (assembly code, not prompt content):** `_MULTI_FILE_FILE` appended in
+`build_system_prompt()`; `assets_status()` gains `multi_file_guidance_present`.

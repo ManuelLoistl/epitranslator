@@ -106,6 +106,18 @@
   button:hover:not(:disabled) { background: var(--accent-hover); }
   button:disabled { opacity: 0.5; cursor: default; }
   button.secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .filebar { display:flex; align-items:center; gap:8px; padding:8px 16px;
+             border-bottom:1px solid var(--border); }
+  .mini { padding:4px 10px; font-size:12px; font-weight:500; border-radius:6px; }
+  .hint { color: var(--muted); font-size:12px; cursor:help; margin-left:auto; }
+  .files { flex:1; overflow:auto; display:flex; flex-direction:column; min-height:0; }
+  .fileblock { display:flex; flex-direction:column; border-bottom:1px solid var(--border);
+               min-height:0; }
+  .fileblock .fb-head { display:flex; gap:8px; align-items:center; padding:6px 16px 0; }
+  .fileblock .fb-head input { flex:1; }
+  .fileblock textarea { min-height:120px; }
+  .fb-remove { background:transparent; border:0; color:var(--muted);
+               cursor:pointer; font-size:16px; padding:0 6px; }
   .status { color: var(--muted); font-size: 13px; }
   .status.error { color: #f78a8a; }
   .report { border-top: 2px solid var(--accent); background: var(--panel);
@@ -144,13 +156,19 @@
   <main>
     <section class="pane">
       <div class="pane-head">
-        <label for="source">Source model</label>
+        <label>Source model</label>
         <span style="display:flex; gap:8px; align-items:center;">
           <select id="category" title="Disease category (optional hint)"></select>
           <input type="text" id="lang" placeholder="language (optional)" />
         </span>
       </div>
-      <textarea id="source" placeholder="Paste the disease model source code here…" spellcheck="false"></textarea>
+      <div class="filebar">
+        <button class="secondary mini" id="addFile">+ Add file</button>
+        <label class="secondary mini" for="upload" style="cursor:pointer;">Upload files</label>
+        <input type="file" id="upload" multiple hidden />
+        <span class="hint" id="fileHint" title="Include the model definition and the files with parameter values / initial conditions. Skip run scripts, plots, and tests. Export binary data (.rds/.mat/.npy) to text first. A contact matrix mainly conveys age structure.">what to include ⓘ</span>
+      </div>
+      <div id="files" class="files"></div>
     </section>
 
     <section class="pane">
@@ -178,6 +196,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let controller = null;
+let MAX_FILES = 10;
 
 async function loadConfig() {
   try {
@@ -195,9 +214,46 @@ async function loadConfig() {
       opt.textContent = cat.label;
       sel.appendChild(opt);
     }
+    if (typeof c.max_files === "number") { MAX_FILES = c.max_files; refreshAddState(); }
   } catch (e) {
     $("meta").textContent = "could not load config";
   }
+}
+
+function addFileBlock(filename = "", content = "") {
+  const list = $("files");
+  if (list.children.length >= MAX_FILES) return null;
+  const block = document.createElement("div");
+  block.className = "fileblock";
+  block.innerHTML =
+    `<div class="fb-head">` +
+    `<input type="text" class="fb-name" placeholder="filename (optional)" />` +
+    `<button class="fb-remove" title="Remove">×</button></div>` +
+    `<textarea class="fb-content" placeholder="Paste model source or parameter/data here…" spellcheck="false"></textarea>`;
+  block.querySelector(".fb-name").value = filename;
+  block.querySelector(".fb-content").value = content;
+  block.querySelector(".fb-remove").addEventListener("click", () => {
+    block.remove();
+    if ($("files").children.length === 0) addFileBlock();
+    refreshAddState();
+  });
+  block.querySelector(".fb-content").addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
+  });
+  list.appendChild(block);
+  refreshAddState();
+  return block;
+}
+
+function refreshAddState() {
+  $("addFile").disabled = $("files").children.length >= MAX_FILES;
+}
+
+function collectFiles() {
+  return [...$("files").children].map((b) => ({
+    filename: b.querySelector(".fb-name").value.trim(),
+    content: b.querySelector(".fb-content").value,
+  })).filter((f) => f.content.trim());
 }
 
 function setRunning(running) {
@@ -277,8 +333,8 @@ function escapeHtml(s) {
 }
 
 async function translate() {
-  const source_code = $("source").value.trim();
-  if (!source_code) { setStatus("Paste some source code first.", true); return; }
+  const files = collectFiles();
+  if (!files.length) { setStatus("Paste or upload some source first.", true); return; }
 
   $("output").textContent = "";
   resetReport();
@@ -291,7 +347,7 @@ async function translate() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        source_code,
+        files,
         source_language: $("lang").value.trim(),
         category: $("category").value,
       }),
@@ -349,10 +405,22 @@ $("copy").addEventListener("click", () => {
   navigator.clipboard.writeText($("output").textContent);
   setStatus("Copied.");
 });
-$("source").addEventListener("keydown", (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
+$("addFile").addEventListener("click", () => addFileBlock());
+$("upload").addEventListener("change", (e) => {
+  const files = [...e.target.files];
+  const free = MAX_FILES - $("files").children.length;
+  let skipped = 0;
+  files.forEach((file, i) => {
+    if (i >= free) { skipped++; return; }
+    const reader = new FileReader();
+    reader.onload = () => addFileBlock(file.name, reader.result);
+    reader.readAsText(file);
+  });
+  if (skipped) setStatus(`skipped ${skipped} (max ${MAX_FILES})`, true);
+  e.target.value = "";
 });
 
+addFileBlock();
 loadConfig();
 </script>
 </body>

@@ -24,6 +24,15 @@ Link to a disease model in → schema-adjusted model out.
 There is no automated validation by design — the translated code is shown raw
 for a modeler to review.
 
+A model that spans several files can be submitted as a **set** — upload files or
+paste into named blocks (up to 10). They're concatenated with
+`=== file: <name> (<Lang>) ===` headers into one source and translated into a
+single `model.py`. A single unnamed paste behaves exactly as before. Include the
+model definition and the files holding parameter values / initial conditions;
+skip run scripts, plots, and tests; export binary data (`.rds`/`.mat`/`.npy`) to
+text first. (A contact matrix mainly conveys age structure — the schema uses
+built-in Prem 2021 matrices, not pasted cell values.)
+
 The source pane has an optional **disease-category** picker (by transmission
 route — respiratory, vector-borne, waterborne, …). The choice feeds a
 disambiguation hint into the translation; it never overrides the source, and
