@@ -227,7 +227,7 @@ function renderReport(r) {
       tr.innerHTML =
         `<td>${mapping}</td>` +
         `<td>${extra}</td>` +
-        `<td><span class="badge ${row.origin || "source"}">${escapeHtml(row.origin || "source")}</span></td>` +
+        `<td><span class="badge ${escapeHtml(row.origin || "source")}">${escapeHtml(row.origin || "source")}</span></td>` +
         `<td>${escapeHtml(row.note || "")}</td>`;
       table.appendChild(tr);
     }
