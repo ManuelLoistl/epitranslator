@@ -127,3 +127,35 @@ All four re-runs compile. Verified 2026-07-01.
 - All other 13 models in the test either translated faithfully or were simplified
   with visible `# NOTE:` comments; this was the only silently-wrong output among
   genuinely compartmental sources.
+
+---
+
+## 2026-07-01 — Planned: output-report addendum (translation-report feature)
+
+**Status: planned — not yet implemented.** Part of the "honest-parameter /
+dynamics-free handling" feature: a two-tier UI (an attention banner + an
+expandable panel auditing every parameter translation). This entry will be
+finalized with the exact before/after and verification once implemented. Design
+spec: `docs/superpowers/specs/2026-07-01-translation-report-design.md`.
+
+Two prompt-asset changes, following the project rule of **preferring a new
+appended file over editing the existing prompt** (see
+[../CLAUDE.md](../CLAUDE.md)):
+
+1. **New file `prompt_assets/output_report.md`** — appended to the system prompt
+   as its final section by `build_system_prompt()`. Instructs the model to emit,
+   after the bare `model.py`, a sentinel line `# ---TRANSLATION-REPORT---`
+   followed by a single JSON object reporting: (a) **every** declared element —
+   compartments, parameters/edge rates, and interventions — each with its
+   provenance `origin` ∈ {`source`, `converted`, `derived`, `guessed`} (each kind
+   uses the applicable subset) — and (b) `attention` items with `severity` ∈
+   {`high`, `info`} and `category` ∈ {`no_dynamics`, `invented`,
+   `dropped_structure`, `model_mismatch`, `ambiguity`}. Additive; does not touch
+   the existing prompt files.
+
+2. **One-line edit to `system_prompt.md`** ("What you output" section) — soften
+   *"Output **only** the complete contents of `model.py`…"* to acknowledge the
+   output addendum, so the new report instruction does not contradict it. This is
+   the minimal edit needed to resolve the contradiction; rationale is the report
+   feature. (Chosen over leaving it untouched because a direct contradiction
+   risks the model dropping the report.)
