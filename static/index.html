@@ -195,6 +195,15 @@ function resetReport() {
   $("auditBar").textContent = "";
 }
 
+function showReportUnavailable() {
+  $("banner").innerHTML =
+    '<div class="att info"><div class="att-title">No translation report was produced for this run.</div></div>';
+  $("auditBar").textContent = "";
+  $("auditBody").innerHTML = "";
+  $("auditBody").classList.remove("open");
+  $("report").hidden = false;
+}
+
 function renderReport(r) {
   const att = r.attention || [];
   const banner = $("banner");
@@ -283,7 +292,9 @@ async function translate() {
         const evt = JSON.parse(line.slice(5).trim());
         if (evt.error) { setStatus(evt.error, true); setRunning(false); return; }
         if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); setRunning(false); return; }
+        if (evt.status) { setStatus(evt.status); }
         if (evt.report) { renderReport(evt.report); }
+        if (evt.report_error) { showReportUnavailable(); }
         if (evt.text) {
           $("output").textContent += evt.text;
           bytes += evt.text.length;

@@ -28,7 +28,11 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(str(_STATIC_DIR / "index.html"))
+    # no-store so the single-page app is never served stale during development.
+    return FileResponse(
+        str(_STATIC_DIR / "index.html"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/health")
@@ -68,11 +72,14 @@ async def translate(payload: dict) -> StreamingResponse:
                 code_parts.append(chunk)
                 yield _sse({"text": chunk})
             # 2. Separate structured call for the report; emit it if we got one.
+            yield _sse({"status": "Writing translation report…"})
             report = translator.generate_report(
                 source_code, "".join(code_parts), source_language
             )
             if report is not None:
                 yield _sse({"report": report})
+            else:
+                yield _sse({"report_error": True})
             yield _sse({"done": True})
         except Exception as exc:  # surface a clean message to the UI
             logger.exception("translation failed")
