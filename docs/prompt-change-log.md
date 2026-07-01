@@ -183,3 +183,16 @@ appended file over editing the existing prompt** (see
    the minimal edit needed to resolve the contradiction; rationale is the report
    feature. (Chosen over leaving it untouched because a direct contradiction
    risks the model dropping the report.)
+
+### Verification (2026-07-01)
+
+Live end-to-end confirmed the model emits a valid report and the code stays clean
+(no sentinel leak, code compiles) on three sources:
+- **epicookbook SIR** — 3 compartments + 2 parameters, all `origin: source`.
+- **`mpox_run.R` (dynamics-free wrapper)** — a `high`/`no_dynamics` attention item
+  ("Source contained no model dynamics") with all compartments/most parameters
+  flagged `guessed` — the intended honest handling of a wrong-file paste.
+- **`wuhan_seir.R`** — parameter provenance `derived` (β from R₀) and `converted`
+  (unit transforms), plus dropped-age-structure attention items.
+Graceful degradation confirmed: with `output_report.md` removed, no report event is
+emitted and the app shows code only, without error.

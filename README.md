@@ -24,6 +24,13 @@ Link to a disease model in → schema-adjusted model out.
 There is no automated validation by design — the translated code is shown raw
 for a modeler to review.
 
+Alongside the code, the output pane shows a **translation report**: an attention
+banner (things to review — guessed parameters, dropped structure, or a
+dynamics-free source) and an expandable audit of every compartment, parameter,
+and intervention with its provenance (`source` / `converted` / `derived` /
+`guessed`). The model appends this report after the code; if it is absent the
+pane simply shows the code, unchanged.
+
 ## Your materials live in `prompt_assets/`
 
 Drop your real prompt, schema, and examples into these files — no Python edits

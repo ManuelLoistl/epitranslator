@@ -27,6 +27,13 @@ Effort labels: **S** = small (hours), **M** = moderate (a day-ish), **L** = larg
 
 ## Post-v1 backlog (go through these together)
 
+> **Shipped 2026-07-01 — translation report.** The output now surfaces an
+> attention banner (guessed params, dropped structure, dynamics-free source) and
+> an expandable audit of every compartment/parameter/intervention translation
+> with provenance. This delivers part of the "surface what needs attention"
+> intent behind items #4 (validation) and #10 (in-app docs). Spec:
+> `docs/superpowers/specs/2026-07-01-translation-report-design.md`.
+
 ### 1. Category picker on submit — **S**
 On submit, user chooses from a fixed list (respiratory, vector-borne,
 waterborne, …). Feeds into the translation prompt so the translation is
