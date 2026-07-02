@@ -1,111 +1,82 @@
 # EpiTranslator
 
-**Live at [epitranslator.com](https://epitranslator.com)** — paste a disease model in, get a pandemic-simulator `model.py` out.
+**Live at [epitranslator.com](https://epitranslator.com).**
 
-EpiTranslator rewrites a disease model — written in **any language** (R, Python,
-Julia, C++, Stan, …) — into the WHO pandemic-simulator's compartmental Python
-schema. The translated `model.py` streams back for you to review, alongside a
-**translation report** that flags anything needing a modeler's eye.
+EpiTranslator helps disease modelers bring an existing model into the **WHO
+Collaboratory pandemic simulator**. Paste or upload your model — written in
+**any language** (R, Python, Julia, C++, Stan, …) — and it's rewritten into the
+simulator's compartmental Python schema (`model.py`), streamed back for you to
+review alongside a **translation report** that flags anything needing your eye.
 
-> Try it now at **[epitranslator.com](https://epitranslator.com)**.
+It's a translation *aid*: it does the tedious first pass, but you review, adjust,
+and own the result. There is no automated validation by design — the code is
+shown raw for a modeler to check.
 
-## How to use
+## Using it
 
-1. **Paste or upload** your model source on the left. If the model spans several
-   files, add them all (up to 10) — **upload, drag-and-drop, or paste** into
-   named blocks; they're concatenated into one source with `=== file: … ===`
-   headers. *Include* the model definition and the files holding parameter
-   values / initial conditions; *skip* run scripts, plots, and tests; export
-   binary data (`.rds`/`.mat`/`.npy`) to text first. (A contact matrix mainly
-   conveys age structure — the schema uses built-in Prem 2021 matrices, not
-   pasted cell values.)
+At **[epitranslator.com](https://epitranslator.com)**:
+
+1. **Paste or upload** your model on the left. If it spans several files, add
+   them all (up to 10) — upload, drag-and-drop, or paste into named blocks; they
+   are concatenated into one source. *Include* the model definition and the files
+   holding parameter values / initial conditions; *skip* run scripts, plots, and
+   tests; export binary data (`.rds`/`.mat`/`.npy`) to text first. (A contact
+   matrix mainly conveys age structure — the schema uses built-in Prem 2021
+   matrices, not pasted cell values.)
 2. Optionally pick a **disease category** — a disambiguation hint only; it never
-   overrides the source, and "Unspecified" adds no hint.
-3. Press **Translate** (or ⌘/Ctrl + ↵). The `model.py` streams into the right
-   pane with syntax highlighting and line numbers.
-4. Review the **translation report** below the code: an attention banner
-   (guessed parameters, dropped structure, or a dynamics-free source) and an
-   expandable audit of every compartment, parameter, and intervention — each
-   tagged with its provenance: `source`, `converted`, `derived`, or `guessed`.
-   Collapse it to give the code more room.
-5. **Copy or download** the `model.py`.
+   overrides the source.
+3. Press **Translate**. The `model.py` streams into the right pane with syntax
+   highlighting.
+4. Review the **translation report**: an attention banner (guessed parameters,
+   dropped structure, a dynamics-free source) and an audit of every compartment,
+   parameter, and intervention, each tagged with its provenance —
+   `source` / `converted` / `derived` / `guessed`.
+5. **Copy or download** the `model.py` and take it into the simulator.
 
-Your last source, category, and translation are kept in your browser
-(`localStorage`) and restored on reload — no account, no server-side state. A
-**Schema reference** button (top right) shows the exact target schema and lets
-you download it.
+The **Schema reference** button (top right) shows the exact target schema.
 
-There is no automated validation by design: the translated code is shown raw for
-a modeler to review.
+## The target framework
 
-## How it works
+EpiTranslator translates *into* the WHO Collaboratory compartmental pandemic
+simulator. Its documentation is authoritative for how a `model.py` must be
+structured and what the schema can (and can't) express:
 
-```
-┌────────────────────────────────────────────────────────────┐
-│  FastAPI (backend/app.py)                                   │
-│   GET  /              → serves the single-page UI           │
-│   POST /api/translate → streams the translation (SSE), then │
-│                         a second, structured call for the   │
-│                         translation report                  │
-│                                                              │
-│  prompt (backend/prompt.py) assembles + caches:             │
-│     instructions + TARGET SCHEMA + WORKED EXAMPLES          │
-│     + multi-file guidance ── then your pasted source(s)     │
-│     as the user turn.                                        │
-└────────────────────────────────────────────────────────────┘
-```
+- **Repository** — [WHO-Collaboratory/pandemic-simulator-compartment](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment)
+- **Writing a model** — [docs/DEVELOPING_MODELS.md](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/docs/DEVELOPING_MODELS.md)
+- **Interventions** — [docs/INTERVENTIONS.md](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/docs/INTERVENTIONS.md)
+- **Contact matrices / age structure** — [docs/CONTACT_MATRICES.md](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/docs/CONTACT_MATRICES.md)
+- **The framework code** — the real `Model` base class and parameter schema live in
+  [`compartment/model.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/model.py)
+  and [`compartment/parameters.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/parameters.py).
 
-The report is a separate structured call, so it can never leak into the code
-pane. The system prompt (instructions + schema + examples) is cached, so repeat
+A translation is only as good as the fit between your source and this schema.
+When a model carries machinery the compartmental schema can't express (e.g. an
+economic layer, agent-based rules, or bespoke intervention scheduling), the
+report flags what was approximated or dropped — that is your cue to review
+closely.
+
+## Behind the curtain
+
+The translation is driven by a prompt assembled from three shared,
+externally-owned ingredients, kept close to what the simulator's authors
+maintain (in `prompt_assets/`):
+
+| Ingredient | File | What it is |
+|---|---|---|
+| Instructions | [`prompt_assets/system_prompt.md`](prompt_assets/system_prompt.md) | The translation instructions. |
+| Target schema | [`prompt_assets/target_schema.py`](prompt_assets/target_schema.py) | An annotated reference of the framework's `Model`, `ParameterSchemaBuilder`, and `ValueType` — the same schema the app's **Schema reference** shows. |
+| Worked examples | [`prompt_assets/examples/`](prompt_assets/examples) | Before/after pairs (`source.<ext>` + `target.py`) — the highest-leverage ingredient. |
+
+The app makes **two** model calls: one streams the bare `model.py`, and a
+second, structured call produces the translation report — so the report can never
+leak into the code. The instructions + schema + examples are cached, so repeat
 translations only pay for the source you paste.
 
-## Your materials live in `prompt_assets/`
+Any change to these prompt assets is recorded in
+[`docs/prompt-change-log.md`](docs/prompt-change-log.md) so it can be shared with
+the prompt's authors and stay aligned with the upstream schema.
 
-Drop your real prompt, schema, and examples into these files — no Python edits
-needed:
+---
 
-| File | What goes here |
-|------|----------------|
-| `prompt_assets/system_prompt.md` | The translation instructions (your prompt). |
-| `prompt_assets/target_schema.py` | The Python target schema the output must conform to. |
-| `prompt_assets/examples/<name>/` | Before/after pairs: `source.<ext>` + `target.py`. |
-
-The worked examples are the highest-leverage ingredient — one complete, correct
-before/after pair teaches the model more than paragraphs of instructions.
-
-## Run locally
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
-uvicorn backend.app:app --reload --port 8000
-```
-
-Open http://localhost:8000. `GET /api/health` shows the active model and which
-prompt assets were loaded. Run the tests with `python -m pytest`.
-
-## Configuration
-
-All optional except the API key (see `.env.example`):
-
-| Env var | Default | Purpose |
-|---------|---------|---------|
-| `ANTHROPIC_API_KEY` | — | **Required.** Your Anthropic key. |
-| `TRANSLATOR_MODEL` | `claude-opus-4-8` | The model — change this to try others. |
-| `TRANSLATOR_EFFORT` | `high` | Reasoning effort: low/medium/high/xhigh/max. |
-| `TRANSLATOR_THINKING` | `adaptive` | Set to `off` to disable adaptive thinking. |
-| `TRANSLATOR_MAX_TOKENS` | `32000` | Max output tokens for the translated file. |
-| `MAX_FILES` | `10` | Max files accepted per translation request. |
-| `MAX_SOURCE_CHARS` | `600000` | Max total source characters per request. |
-| `RATE_LIMIT_MAX` | `20` | Max requests per IP within the window. |
-| `RATE_LIMIT_WINDOW` | `60` | Rate-limit window, in seconds. |
-
-## Deploy
-
-The repo ships a `Dockerfile` that binds to `$PORT`, so it runs on any container
-host — Railway, Fly.io, Render, Cloud Run, a VPS, etc. The only required variable
-is `ANTHROPIC_API_KEY` (plus the optional knobs above); to try a different model
-in production, change `TRANSLATOR_MODEL` and redeploy — no code change. The live
-instance at **[epitranslator.com](https://epitranslator.com)** runs on Railway,
-which builds the Dockerfile directly and injects `$PORT`.
+*Self-hosting: the repo ships a `Dockerfile` bound to `$PORT` (runs on any
+container host); the only required variable is `ANTHROPIC_API_KEY`.*
