@@ -1,4 +1,4 @@
-# Roadmap — Disease Model Translator
+# Roadmap — EpiTranslator
 
 A reviewable plan to walk through **after v1 is running**. This is a personal
 test/experiment project: it may be abandoned at any point, so the guiding bias is
