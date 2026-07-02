@@ -60,6 +60,8 @@
     gap: 12px;
   }
   .pane-head label { font-size: 13px; color: var(--muted); }
+  .cat { display: flex; align-items: center; gap: 8px; }
+  .cat label { font-size: 12px; }
   .pane-head input[type=text] {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -208,6 +210,16 @@
   .hl .c { color: #7f8c98; font-style: italic; }
   .hl .n { color: #d19a66; }
   .shortcut { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .toast { position: fixed; top: 16px; right: 16px; z-index: 60; max-width: 340px;
+           background: var(--panel); border: 1px solid var(--accent); border-radius: 8px;
+           padding: 10px 14px; font-size: 12px; line-height: 1.5; color: var(--text);
+           box-shadow: 0 6px 20px rgba(0,0,0,0.45); animation: toastIn 0.2s ease; }
+  .toast[hidden] { display: none; }
+  .toast.fade { opacity: 0; transition: opacity 0.4s ease; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .fileblock.just-added { animation: blockIn 0.45s ease; }
+  @keyframes blockIn { from { opacity: 0.3; transform: translateY(-10px); background: rgba(232,105,45,0.18); }
+                       to { opacity: 1; transform: none; background: transparent; } }
 </style>
 </head>
 <body>
@@ -223,12 +235,15 @@
   <main>
     <section class="pane" id="sourcePane">
       <div class="pane-head">
-        <label for="category">Source model</label>
-        <select id="category" aria-label="Disease category (optional hint)" title="Disease category (optional hint)"></select>
+        <label>Source model</label>
+        <span class="cat">
+          <label for="category">Disease category</label>
+          <select id="category" title="Optional hint for genuinely ambiguous cases — it never overrides the source."></select>
+        </span>
       </div>
       <div class="filebar">
-        <button class="secondary mini" id="addFile">+ Add file</button>
-        <label class="secondary mini" for="upload" style="cursor:pointer;">Upload files</label>
+        <button class="secondary mini" id="addFile">+ Add code</button>
+        <button class="secondary mini" id="uploadBtn">↑ Upload files</button>
         <input type="file" id="upload" multiple hidden />
         <button class="secondary mini" id="collapseAll" style="display:none;">Collapse all</button>
         <span class="file-count" id="fileCount"></span>
@@ -281,6 +296,8 @@
     </div>
     <pre id="schemaContent"></pre>
   </dialog>
+
+  <div class="toast" id="toast" hidden></div>
 
   <footer>
     <button id="translate">Translate</button>
@@ -342,11 +359,9 @@ async function loadConfig() {
   try {
     const r = await fetch("/api/health");
     const j = await r.json();
-    const c = j.config, a = j.assets;
+    const c = j.config;
     const keyWarn = c.api_key_present ? "" : " · ⚠ no API key set";
-    $("meta").innerHTML =
-      `model <code>${c.model}</code> · effort ${c.effort} · thinking ${c.thinking}` +
-      ` · ${a.example_count} example(s)${keyWarn}`;
+    $("meta").innerHTML = `model <code>${c.model}</code>${keyWarn}`;
     const sel = $("category");
     for (const cat of (j.categories || [])) {
       const opt = document.createElement("option");
@@ -361,16 +376,16 @@ async function loadConfig() {
   }
 }
 
-function addFileBlock(filename = "", content = "") {
+function addFileBlock(filename = "", content = "", atTop = false) {
   const list = $("files");
   if (list.children.length >= MAX_FILES) return null;
   const block = document.createElement("div");
   block.className = "fileblock";
   block.innerHTML =
     `<div class="fb-head">` +
-    `<button class="fb-toggle" title="Collapse / expand" aria-label="Collapse or expand this file">▾</button>` +
-    `<input type="text" class="fb-name" placeholder="filename (optional)" />` +
-    `<button class="fb-remove" title="Remove" aria-label="Remove this file">×</button></div>` +
+    `<button class="fb-toggle" title="Collapse / expand" aria-label="Collapse or expand this block">▾</button>` +
+    `<input type="text" class="fb-name" placeholder="name (optional, e.g. model.R)" />` +
+    `<button class="fb-remove" title="Remove" aria-label="Remove this block">×</button></div>` +
     `<textarea class="fb-content" placeholder="Paste model source or parameter/data here…" spellcheck="false"></textarea>`;
   block.querySelector(".fb-name").value = filename;
   block.querySelector(".fb-content").value = content;
@@ -387,7 +402,13 @@ function addFileBlock(filename = "", content = "") {
   block.querySelector(".fb-content").addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
   });
-  list.appendChild(block);
+  if (atTop) {
+    list.prepend(block);   // new blocks land at the top
+    block.classList.add("just-added");
+    block.addEventListener("animationend", () => block.classList.remove("just-added"), { once: true });
+  } else {
+    list.appendChild(block);
+  }
   refreshAddState();
   return block;
 }
@@ -690,7 +711,8 @@ $("copy").addEventListener("click", async () => {
   const b = $("copy"); b.textContent = "Copied ✓";
   setTimeout(() => { b.textContent = "Copy"; }, 1500);
 });
-$("addFile").addEventListener("click", () => addFileBlock());
+$("addFile").addEventListener("click", () => addFileBlock("", "", true));
+$("uploadBtn").addEventListener("click", () => $("upload").click());
 $("collapseAll").addEventListener("click", () => {
   const blocks = [...$("files").children];
   const anyOpen = blocks.some((b) => !b.classList.contains("collapsed"));
@@ -701,28 +723,44 @@ $("collapseAll").addEventListener("click", () => {
   $("collapseAll").textContent = anyOpen ? "Expand all" : "Collapse all";
 });
 
-// Add uploaded/dropped files, with size/type validation and clear feedback.
-function processFiles(fileList) {
+// A brief, self-fading toast (upload feedback, etc.).
+let toastTimer = null;
+function showToast(html) {
+  const t = $("toast");
+  t.innerHTML = html;
+  t.hidden = false;
+  t.classList.remove("fade");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.add("fade");
+    setTimeout(() => { t.hidden = true; }, 400);
+  }, 3200);
+}
+
+// Add uploaded/dropped files at the top, with size/type validation + a toast.
+async function processFiles(fileList) {
   const free = MAX_FILES - $("files").children.length;
-  let added = 0, cap = 0, big = 0, bin = 0;
+  const accepted = []; let cap = 0, big = 0, bin = 0;
   for (const file of [...fileList]) {
-    if (added >= free) { cap++; continue; }
+    if (accepted.length >= free) { cap++; continue; }
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     if (BINARY_EXT.has(ext)) { bin++; continue; }
     if (file.size > MAX_FILE_BYTES) { big++; continue; }
-    added++;
-    const reader = new FileReader();
-    reader.onload = () => { addFileBlock(file.name, reader.result); scheduleSave(); };
-    reader.readAsText(file);
+    accepted.push(file);
   }
-  const parts = [];
-  if (added) parts.push(`added ${added} file${added > 1 ? "s" : ""}`);
-  if (bin) parts.push(`skipped ${bin} binary (export to text first)`);
-  if (big) parts.push(`skipped ${big} over 2 MB`);
-  if (cap) parts.push(`skipped ${cap} (max ${MAX_FILES} files)`);
-  if (parts.length) setStatus(parts.join(" · "), !!(bin || big || cap));
+  const contents = await Promise.all(accepted.map((f) => f.text()));
+  // insert the batch at the top, preserving the selected file order
+  for (let i = accepted.length - 1; i >= 0; i--) addFileBlock(accepted[i].name, contents[i], true);
+  if (accepted.length) scheduleSave();
+
+  const lines = [];
+  if (accepted.length) lines.push(`✓ Added ${accepted.length} file${accepted.length > 1 ? "s" : ""}: ${accepted.map((f) => f.name).join(", ")}`);
+  if (bin) lines.push(`Skipped ${bin} binary — export to text first`);
+  if (big) lines.push(`Skipped ${big} over 2 MB`);
+  if (cap) lines.push(`Skipped ${cap} — max ${MAX_FILES} files`);
+  if (lines.length) showToast(lines.map(escapeHtml).join("<br>"));
 }
-$("upload").addEventListener("change", (e) => { processFiles(e.target.files); e.target.value = ""; });
+$("upload").addEventListener("change", (e) => { const f = [...e.target.files]; e.target.value = ""; processFiles(f); });
 
 // Drag-and-drop onto the source pane (file drags only — text drags into a textarea still work).
 const sourcePane = $("sourcePane");
@@ -739,7 +777,7 @@ sourcePane.addEventListener("drop", (e) => {
   if (!isFileDrag(e)) return;
   e.preventDefault();
   sourcePane.classList.remove("dragover");
-  if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
+  if (e.dataTransfer.files.length) processFiles([...e.dataTransfer.files]);
 });
 
 // --- Downloads ---------------------------------------------------------------
