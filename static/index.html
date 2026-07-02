@@ -211,7 +211,7 @@
 
   <footer>
     <button id="translate">Translate</button>
-    <button class="secondary" id="stop" style="display:none;">Stop</button>
+    <button class="secondary" id="clear" disabled>Clear</button>
     <span class="status" id="status"></span>
   </footer>
 
@@ -219,6 +219,8 @@
 const $ = (id) => document.getElementById(id);
 let controller = null;
 let MAX_FILES = 10;
+let isRunning = false;
+let hasResult = false;   // a completed run left output that can be cleared
 
 async function loadConfig() {
   try {
@@ -314,9 +316,35 @@ function restoreSession() {
   return true;
 }
 
-function setRunning(running) {
-  $("translate").disabled = running;
-  $("stop").style.display = running ? "inline-block" : "none";
+function setRunning(r) {
+  isRunning = r;
+  $("translate").disabled = r;
+  updateActionBtn();
+}
+
+// The footer's second button is dual-state: "Stop" while a run is in progress,
+// otherwise "Clear" — enabled only once a run has completed (hasResult).
+function updateActionBtn() {
+  const b = $("clear");
+  b.textContent = isRunning ? "Stop" : "Clear";
+  b.disabled = isRunning ? false : !hasResult;
+}
+
+function clearRight() {   // clear the translation output + report only (keep source)
+  $("output").textContent = "";
+  resetReport();
+}
+
+function clearAll() {     // full reset — both panes, status, and saved session
+  $("files").innerHTML = "";
+  addFileBlock();
+  $("output").textContent = "";
+  resetReport();
+  setStatus("");
+  $("category").selectedIndex = 0;   // back to "Unspecified"
+  try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ }
+  hasResult = false;
+  updateActionBtn();
 }
 
 function resetReport() {
@@ -426,7 +454,7 @@ async function translate() {
         if (!line.startsWith("data:")) continue;
         const evt = JSON.parse(line.slice(5).trim());
         if (evt.error) { setStatus(evt.error, true); setRunning(false); return; }
-        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); setRunning(false); return; }
+        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); hasResult = true; setRunning(false); return; }
         if (evt.status) { setStatus(evt.status); }
         if (evt.report) { renderReport(evt.report); }
         if (evt.report_error) { showReportUnavailable(); }
@@ -437,6 +465,7 @@ async function translate() {
         }
       }
     }
+    hasResult = true;
     setStatus(`Done · ${bytes.toLocaleString()} chars`);
   } catch (e) {
     if (e.name === "AbortError") setStatus("Stopped.");
@@ -454,7 +483,15 @@ function setStatus(msg, isError) {
 }
 
 $("translate").addEventListener("click", translate);
-$("stop").addEventListener("click", () => controller && controller.abort());
+$("clear").addEventListener("click", () => {
+  if (isRunning) {
+    if (controller) controller.abort();   // -> translate() catch/finally flips state
+    clearRight();                         // clear the right side only, keep source
+    hasResult = false;
+  } else {
+    clearAll();                           // full reset (only reachable post-run)
+  }
+});
 $("auditBar").addEventListener("click", () => {
   const open = $("auditBody").classList.toggle("open");
   $("auditBar").textContent = $("auditBar").textContent.replace(/[▸▾]$/, open ? "▾" : "▸");
@@ -517,6 +554,8 @@ $("category").addEventListener("change", saveSession);
 
 // --- Init --------------------------------------------------------------------
 if (!restoreSession()) addFileBlock();
+hasResult = $("output").textContent.trim().length > 0;   // prior run's result restored?
+updateActionBtn();
 loadConfig();
 loadSchemaDoc();
 </script>
