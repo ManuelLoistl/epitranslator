@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>EpiTranslator</title>
+<title>EpiTranslator — disease model translator</title>
+<meta name="description" content="EpiTranslator rewrites a disease model — written in any language — into the WHO pandemic-simulator compartmental schema." />
+<meta property="og:title" content="EpiTranslator" />
+<meta property="og:description" content="Rewrite a disease model, in any language, into the pandemic-simulator schema." />
+<meta property="og:type" content="website" />
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 <style>
   :root {
@@ -192,6 +196,18 @@
              border-top-color: var(--accent); border-radius: 50%;
              animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .placeholder.error { color: #f78a8a; }
+  /* output: line-number gutter + syntax highlight */
+  .gutter { padding: 16px 8px 16px 14px; text-align: right; color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px; line-height: 1.5; white-space: pre; overflow: hidden;
+            user-select: none; border-right: 1px solid var(--border); }
+  .gutter:empty { display: none; }
+  .hl .k { color: #c678dd; }
+  .hl .s { color: #98c379; }
+  .hl .c { color: #7f8c98; font-style: italic; }
+  .hl .n { color: #d19a66; }
+  .shortcut { color: var(--muted); font-size: 12px; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -232,11 +248,12 @@
       <div class="pane-head">
         <label>Translated (target schema)</label>
         <span style="display:flex; gap:8px;">
-          <button class="secondary" id="download" style="padding:4px 10px;font-size:12px;font-weight:500;">Download</button>
-          <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
+          <button class="secondary mini" id="download">Download</button>
+          <button class="secondary mini" id="copy">Copy</button>
         </span>
       </div>
       <div class="output-wrap">
+        <div class="gutter" id="gutter"></div>
         <pre id="output"></pre>
         <div class="placeholder" id="placeholder"></div>
       </div>
@@ -268,6 +285,7 @@
   <footer>
     <button id="translate">Translate</button>
     <button class="secondary" id="clear" disabled>Clear</button>
+    <span class="shortcut" id="shortcut"></span>
     <span class="status" id="status" role="status" aria-live="polite"></span>
   </footer>
 
@@ -282,6 +300,43 @@ const BINARY_EXT = new Set(["rds","rdata","mat","npy","npz","xlsx","xls","feathe
   "gif","bmp","pdf","doc","docx"]);
 const MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
 let elapsedTimer = null;
+let outputRaw = "";   // the raw translated code — the source of truth for copy/download
+
+// Minimal, self-contained Python highlighter. Cosmetic only: copy/download always
+// use `outputRaw`, so imperfect highlighting can never corrupt the delivered code.
+const PY_KW = new Set(("False None True and as assert async await break class continue " +
+  "def del elif else except finally for from global if import in is lambda nonlocal not " +
+  "or pass raise return try while with yield").split(" "));
+function pyHighlight(src) {
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  let out = "", i = 0; const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    if (c === "#") { let j = src.indexOf("\n", i); if (j < 0) j = n;
+      out += `<span class="c">${esc(src.slice(i, j))}</span>`; i = j; continue; }
+    if (src.startsWith('"""', i) || src.startsWith("'''", i)) {
+      const q = src.substr(i, 3); let j = src.indexOf(q, i + 3); j = j < 0 ? n : j + 3;
+      out += `<span class="s">${esc(src.slice(i, j))}</span>`; i = j; continue; }
+    if (c === '"' || c === "'") {
+      let j = i + 1; while (j < n && src[j] !== c) { if (src[j] === "\\") j++; j++; }
+      j = Math.min(j + 1, n);
+      out += `<span class="s">${esc(src.slice(i, j))}</span>`; i = j; continue; }
+    if (c >= "0" && c <= "9") { let j = i; while (j < n && /[0-9._eExXob]/.test(src[j])) j++;
+      out += `<span class="n">${esc(src.slice(i, j))}</span>`; i = j; continue; }
+    if (/[A-Za-z_]/.test(c)) { let j = i; while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+      const w = src.slice(i, j);
+      out += PY_KW.has(w) ? `<span class="k">${w}</span>` : esc(w); i = j; continue; }
+    out += esc(c); i++;
+  }
+  return out;
+}
+function renderOutput() {   // highlight + number the completed output
+  if (!outputRaw) { $("output").textContent = ""; $("gutter").textContent = ""; return; }
+  $("output").innerHTML = `<code class="hl">${pyHighlight(outputRaw)}</code>`;
+  const lines = outputRaw.replace(/\n+$/, "").split("\n").length;
+  $("gutter").textContent = Array.from({ length: lines }, (_, k) => k + 1).join("\n");
+  $("output").scrollTop = 0; $("gutter").scrollTop = 0;
+}
 
 async function loadConfig() {
   try {
@@ -367,7 +422,7 @@ function saveSession() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       files: collectFilesRaw(),
       category: $("category").value,
-      output: $("output").textContent,
+      output: outputRaw,
     }));
   } catch (e) { /* quota / disabled — ignore */ }
 }
@@ -380,7 +435,8 @@ function restoreSession() {
   const blocks = (s.files && s.files.length) ? s.files : [{ filename: "", content: "" }];
   for (const f of blocks.slice(0, MAX_FILES)) addFileBlock(f.filename || "", f.content || "");
   if ($("files").children.length === 0) addFileBlock();
-  $("output").textContent = s.output || "";
+  outputRaw = s.output || "";
+  $("output").textContent = outputRaw;
   pendingCategory = s.category || null;
   return true;
 }
@@ -400,7 +456,9 @@ function updateActionBtn() {
 }
 
 function clearRight() {   // clear the translation output + report only (keep source)
+  outputRaw = "";
   $("output").textContent = "";
+  $("gutter").textContent = "";
   resetReport();
   setPhase("idle");
 }
@@ -408,7 +466,9 @@ function clearRight() {   // clear the translation output + report only (keep so
 function clearAll() {     // full reset — both panes, status, and saved session
   $("files").innerHTML = "";
   addFileBlock();
+  outputRaw = "";
   $("output").textContent = "";
+  $("gutter").textContent = "";
   resetReport();
   setStatus("");
   $("category").selectedIndex = 0;   // back to "Unspecified"
@@ -494,9 +554,18 @@ function escapeHtml(s) {
 }
 
 // Output-pane empty / working state (shown over an empty output pane).
+function setPhaseError(msg) {   // shown over an empty output pane when a run fails
+  if (outputRaw) return;   // partial output present — keep it; error is in the status line
+  const ph = $("placeholder");
+  ph.hidden = false;
+  ph.className = "placeholder error";
+  ph.innerHTML = `<div><b>Translation failed.</b><br>${escapeHtml(msg)}` +
+    `<br><br>Adjust your input and press <b>Translate</b> again.</div>`;
+}
 function setPhase(phase) {   // 'idle' | 'working'
   const ph = $("placeholder");
-  if ($("output").textContent.length > 0) { ph.hidden = true; return; }
+  ph.className = "placeholder";
+  if (outputRaw.length > 0) { ph.hidden = true; return; }
   ph.hidden = false;
   ph.innerHTML = phase === "working"
     ? `<div class="spinner"></div>` +
@@ -523,12 +592,15 @@ async function translate() {
   if (!files.length) { setStatus("Paste or upload some source first.", true); return; }
 
   $("output").textContent = "";
+  outputRaw = "";
+  $("gutter").textContent = "";
   resetReport();
   setStatus("Translating…");
   setRunning(true);
   setPhase("working");
   startTimer();
   controller = new AbortController();
+  let errored = false;
 
   try {
     const resp = await fetch("/api/translate", {
@@ -555,13 +627,14 @@ async function translate() {
         const line = part.trim();
         if (!line.startsWith("data:")) continue;
         const evt = JSON.parse(line.slice(5).trim());
-        if (evt.error) { setStatus(evt.error, true); setRunning(false); return; }
-        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); hasResult = true; setRunning(false); return; }
+        if (evt.error) { setStatus(evt.error, true); errored = true; setPhaseError(evt.error); setRunning(false); return; }
+        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); hasResult = true; renderOutput(); setRunning(false); return; }
         if (evt.status) { setStatus(evt.status); }
         if (evt.report) { renderReport(evt.report); }
         if (evt.report_error) { showReportUnavailable(); }
         if (evt.text) {
           $("placeholder").hidden = true;
+          outputRaw += evt.text;
           $("output").textContent += evt.text;
           bytes += evt.text.length;
           $("output").scrollTop = $("output").scrollHeight;
@@ -569,14 +642,15 @@ async function translate() {
       }
     }
     hasResult = true;
+    renderOutput();
     setStatus(`Done · ${bytes.toLocaleString()} chars`);
   } catch (e) {
     if (e.name === "AbortError") setStatus("Stopped.");
-    else setStatus("Request failed: " + e.message, true);
+    else { setStatus("Request failed: " + e.message, true); errored = true; setPhaseError(e.message); }
   } finally {
     setRunning(false);
     stopTimer();
-    if (!$("output").textContent) setPhase("idle");
+    if (!outputRaw && !errored) setPhase("idle");
     saveSession();
   }
 }
@@ -594,6 +668,7 @@ $("clear").addEventListener("click", () => {
     clearRight();                         // clear the right side only, keep source
     hasResult = false;
   } else {
+    if (!confirm("Clear everything and start over? This removes the pasted source and the translation.")) return;
     clearAll();                           // full reset (only reachable post-run)
   }
 });
@@ -601,9 +676,19 @@ $("auditBar").addEventListener("click", () => {
   const open = $("auditBody").classList.toggle("open");
   $("auditBar").textContent = $("auditBar").textContent.replace(/[▸▾]$/, open ? "▾" : "▸");
 });
-$("copy").addEventListener("click", () => {
-  navigator.clipboard.writeText($("output").textContent);
-  setStatus("Copied.");
+$("copy").addEventListener("click", async () => {
+  if (!outputRaw.trim()) { setStatus("Nothing to copy yet.", true); return; }
+  try {
+    await navigator.clipboard.writeText(outputRaw);
+  } catch (e) {   // fallback for non-secure contexts / denied permission
+    const ta = document.createElement("textarea");
+    ta.value = outputRaw; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+  const b = $("copy"); b.textContent = "Copied ✓";
+  setTimeout(() => { b.textContent = "Copy"; }, 1500);
 });
 $("addFile").addEventListener("click", () => addFileBlock());
 $("collapseAll").addEventListener("click", () => {
@@ -666,9 +751,8 @@ function downloadText(filename, text, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 $("download").addEventListener("click", () => {
-  const t = $("output").textContent;
-  if (!t.trim()) { setStatus("Nothing to download yet.", true); return; }
-  downloadText("model.py", t, "text/x-python");
+  if (!outputRaw.trim()) { setStatus("Nothing to download yet.", true); return; }
+  downloadText("model.py", outputRaw, "text/x-python");
 });
 
 // --- Schema reference doc ----------------------------------------------------
@@ -699,8 +783,13 @@ $("files").addEventListener("input", scheduleSave);
 $("category").addEventListener("change", saveSession);
 
 // --- Init --------------------------------------------------------------------
+$("output").addEventListener("scroll", () => { $("gutter").scrollTop = $("output").scrollTop; });
+const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
+$("shortcut").textContent = (isMac ? "⌘" : "Ctrl+") + "↵ to translate";
+
 if (!restoreSession()) addFileBlock();
-hasResult = $("output").textContent.trim().length > 0;   // prior run's result restored?
+hasResult = outputRaw.trim().length > 0;   // prior run's result restored?
+if (outputRaw) renderOutput();
 updateActionBtn();
 setPhase("idle");
 loadConfig();
