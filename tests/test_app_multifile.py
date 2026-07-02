@@ -52,3 +52,28 @@ def test_source_code_fallback_still_works(monkeypatch):
     body = _post({"source_code": "legacy"})
     assert seen["src"] == "legacy"
     assert "OUT" in body
+
+
+def test_source_too_large(monkeypatch):
+    import backend.app as appmod
+    monkeypatch.setattr(translator, "api_key_present", lambda: True)
+    monkeypatch.setattr(appmod, "MAX_SOURCE_CHARS", 10)
+    appmod._rate_hits.clear()
+    body = _post({"source_code": "x" * 50})
+    assert "too large" in body.lower()
+
+
+def test_rate_limit(monkeypatch):
+    import backend.app as appmod
+    monkeypatch.setattr(translator, "api_key_present", lambda: True)
+
+    def fake_stream(source_code, source_language=None, category=None):
+        yield "OUT"
+
+    monkeypatch.setattr(translator, "stream_translation", fake_stream)
+    monkeypatch.setattr(translator, "generate_report", lambda *a, **k: None)
+    monkeypatch.setattr(appmod, "RATE_LIMIT_MAX", 2)
+    appmod._rate_hits.clear()
+    assert "OUT" in _post({"source_code": "a"})
+    assert "OUT" in _post({"source_code": "b"})
+    assert "Too many requests" in _post({"source_code": "c"})
