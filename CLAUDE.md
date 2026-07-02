@@ -1,4 +1,4 @@
-# Model Translator — project guidance
+# EpiTranslator — project guidance
 
 ## Prompt assets: keep the existing prompt files stable
 

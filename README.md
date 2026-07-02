@@ -1,4 +1,4 @@
-# Disease Model Translator
+# EpiTranslator
 
 A lightweight tool: paste a disease model's source code in, and Claude translates
 it into a well-defined Python target schema. The bare translated code is streamed

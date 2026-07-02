@@ -21,7 +21,7 @@ from backend import translator
 
 logger = logging.getLogger("model-translator")
 
-app = FastAPI(title="Disease Model Translator", version="0.1.0")
+app = FastAPI(title="EpiTranslator", version="0.1.0")
 
 # Cap on how many files one translation request may carry. Enforced here
 # (authoritative) and surfaced via /api/health so the UI mirrors it.
