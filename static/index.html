@@ -126,8 +126,14 @@
   .report { border-top: 2px solid var(--accent); background: var(--panel);
             display: flex; flex-direction: column; min-height: 0; }
   .report[hidden] { display: none; }
-  .report-head { padding: 8px 16px; font-size: 12px; font-weight: 600;
-                 color: var(--muted); border-bottom: 1px solid var(--border); }
+  .report-head { width: 100%; text-align: left; background: transparent;
+                 border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+                 padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--muted);
+                 cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .report-head:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .report-head .chev { display: inline-block; transition: transform 0.15s; }
+  .report.collapsed .report-head .chev { transform: rotate(-90deg); }
+  .report.collapsed .report-body { display: none; }
   .banner { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; }
   .banner:empty { display: none; }
   .att { border-radius: 6px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
@@ -148,11 +154,11 @@
   .badge.guessed { background: var(--accent); color: #fff; }
   .badge.derived, .badge.converted { background: #2b3645; color: var(--text); }
   .badge.source { background: transparent; color: var(--muted); }
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-           display:flex; align-items:center; justify-content:center; z-index:50; padding:24px; }
-  .modal[hidden] { display:none; }
-  .modal-box { background: var(--panel); border:1px solid var(--border); border-radius:10px;
-               width: min(900px, 100%); max-height: 85vh; display:flex; flex-direction:column; min-height:0; }
+  dialog.modal-box { padding: 0; color: var(--text); background: var(--panel);
+               border: 1px solid var(--border); border-radius: 10px;
+               width: min(900px, 92vw); max-height: 85vh; }
+  dialog.modal-box[open] { display: flex; flex-direction: column; min-height: 0; }
+  dialog.modal-box::backdrop { background: rgba(0,0,0,0.6); }
   .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
                 padding:10px 16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
   .modal-box pre { padding:16px; overflow:auto; white-space:pre; }
@@ -238,29 +244,31 @@
   </main>
 
   <section class="report" id="report" hidden>
-    <div class="report-head">Translation report — for review, not part of the code</div>
-    <div class="banner" id="banner"></div>
-    <div class="audit-bar" id="auditBar"></div>
-    <div class="audit-body" id="auditBody"></div>
+    <button class="report-head" id="reportToggle" aria-expanded="true">
+      <span class="chev">▾</span> Translation report — for review, not part of the code
+    </button>
+    <div class="report-body">
+      <div class="banner" id="banner"></div>
+      <div class="audit-bar" id="auditBar"></div>
+      <div class="audit-body" id="auditBody"></div>
+    </div>
   </section>
 
-  <div class="modal" id="schemaModal" hidden>
-    <div class="modal-box">
-      <div class="modal-head">
-        <span>Target schema reference — the contract your translated model.py conforms to</span>
-        <span style="display:flex; gap:8px;">
-          <button class="secondary mini" id="schemaDownload">Download</button>
-          <button class="secondary mini" id="schemaClose">Close</button>
-        </span>
-      </div>
-      <pre id="schemaContent"></pre>
+  <dialog id="schemaModal" class="modal-box" aria-label="Target schema reference">
+    <div class="modal-head">
+      <span>Target schema reference — the contract your translated model.py conforms to</span>
+      <span style="display:flex; gap:8px;">
+        <button class="secondary mini" id="schemaDownload">Download</button>
+        <button class="secondary mini" id="schemaClose">Close</button>
+      </span>
     </div>
-  </div>
+    <pre id="schemaContent"></pre>
+  </dialog>
 
   <footer>
     <button id="translate">Translate</button>
     <button class="secondary" id="clear" disabled>Clear</button>
-    <span class="status" id="status"></span>
+    <span class="status" id="status" role="status" aria-live="polite"></span>
   </footer>
 
 <script>
@@ -412,6 +420,8 @@ function clearAll() {     // full reset — both panes, status, and saved sessio
 
 function resetReport() {
   $("report").hidden = true;
+  $("report").classList.remove("collapsed");
+  $("reportToggle").setAttribute("aria-expanded", "true");
   $("banner").innerHTML = "";
   $("auditBody").innerHTML = "";
   $("auditBody").classList.remove("open");
@@ -433,8 +443,10 @@ function renderReport(r) {
   banner.innerHTML = "";
   for (const a of att) {
     const el = document.createElement("div");
-    el.className = "att " + (a.severity === "high" ? "high" : "info");
-    el.innerHTML = `<div class="att-title">${escapeHtml(a.title || "")}</div>` +
+    const high = a.severity === "high";
+    el.className = "att " + (high ? "high" : "info");
+    const icon = high ? "⚠️" : "ℹ️";
+    el.innerHTML = `<div class="att-title">${icon} ${escapeHtml(a.title || "")}</div>` +
                    `<div class="att-detail">${escapeHtml(a.detail || "")}</div>`;
     el.addEventListener("click", () => el.classList.toggle("open"));
     banner.appendChild(el);
@@ -668,11 +680,15 @@ async function loadSchemaDoc() {
 $("schemaBtn").addEventListener("click", async () => {
   if (!schemaText) await loadSchemaDoc();
   $("schemaContent").textContent = schemaText || "Schema reference unavailable.";
-  $("schemaModal").hidden = false;
+  $("schemaModal").showModal();   // native: focus trap, Escape-to-close, focus return
 });
-$("schemaClose").addEventListener("click", () => { $("schemaModal").hidden = true; });
-$("schemaModal").addEventListener("click", (e) => {
-  if (e.target === $("schemaModal")) $("schemaModal").hidden = true;
+$("schemaClose").addEventListener("click", () => $("schemaModal").close());
+$("schemaModal").addEventListener("click", (e) => {   // click the backdrop to close
+  if (e.target === $("schemaModal")) $("schemaModal").close();
+});
+$("reportToggle").addEventListener("click", () => {
+  const collapsed = $("report").classList.toggle("collapsed");
+  $("reportToggle").setAttribute("aria-expanded", String(!collapsed));
 });
 $("schemaDownload").addEventListener("click", () => {
   if (schemaText) downloadText("target_schema.py", schemaText, "text/x-python");
