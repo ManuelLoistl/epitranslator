@@ -101,13 +101,11 @@ All optional except the API key (see `.env.example`):
 | `RATE_LIMIT_MAX` | `20` | Max requests per IP within the window. |
 | `RATE_LIMIT_WINDOW` | `60` | Rate-limit window, in seconds. |
 
-## Deploy to Railway
+## Deploy
 
-The repo ships a `Dockerfile`; Railway builds it directly.
-
-1. Create a new Railway project from this repo.
-2. Add a variable `ANTHROPIC_API_KEY` (and optionally `TRANSLATOR_MODEL`, etc.).
-3. Deploy. Railway injects `$PORT`; the container binds to it automatically.
-
-To try a different model in production, change the `TRANSLATOR_MODEL` variable
-and redeploy — no code change.
+The repo ships a `Dockerfile` that binds to `$PORT`, so it runs on any container
+host — Railway, Fly.io, Render, Cloud Run, a VPS, etc. The only required variable
+is `ANTHROPIC_API_KEY` (plus the optional knobs above); to try a different model
+in production, change `TRANSLATOR_MODEL` and redeploy — no code change. The live
+instance at **[epitranslator.com](https://epitranslator.com)** runs on Railway,
+which builds the Dockerfile directly and injects `$PORT`.
