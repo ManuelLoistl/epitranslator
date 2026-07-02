@@ -156,6 +156,36 @@
   .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
                 padding:10px 16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); }
   .modal-box pre { padding:16px; overflow:auto; white-space:pre; }
+  /* --- source pane: guidance, file accordion, drag-drop --- */
+  #sourcePane { position: relative; }
+  .filebar .file-count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .guide { font-size: 12px; color: var(--muted); padding: 6px 16px;
+           border-bottom: 1px solid var(--border); }
+  .guide summary { cursor: pointer; user-select: none; }
+  .guide p { margin: 6px 0 0; line-height: 1.5; }
+  .guide code, .placeholder code { color: var(--accent); }
+  .fileblock .fb-head { position: sticky; top: 0; z-index: 1; background: var(--panel); }
+  .fb-toggle { background: transparent; border: 0; color: var(--muted);
+               cursor: pointer; font-size: 11px; padding: 0; width: 16px; }
+  .fileblock .fb-head input { flex: 1; background: var(--bg); border: 1px solid var(--border);
+               color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+  .fileblock.collapsed textarea { display: none; }
+  .drop-hint { position: absolute; inset: 0; z-index: 5; display: none;
+               align-items: center; justify-content: center; pointer-events: none;
+               background: rgba(232,105,45,0.10); border: 2px dashed var(--accent);
+               color: var(--accent); font-size: 14px; font-weight: 600; }
+  #sourcePane.dragover .drop-hint { display: flex; }
+  /* --- output pane: empty / working states --- */
+  .output-wrap { flex: 1; position: relative; display: flex; min-height: 0; }
+  .placeholder { position: absolute; inset: 0; display: flex; flex-direction: column;
+                 align-items: center; justify-content: center; gap: 10px;
+                 text-align: center; color: var(--muted); font-size: 13px;
+                 line-height: 1.6; padding: 24px; }
+  .placeholder[hidden] { display: none; }
+  .spinner { width: 22px; height: 22px; border: 2px solid var(--border);
+             border-top-color: var(--accent); border-radius: 50%;
+             animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -169,17 +199,27 @@
   </header>
 
   <main>
-    <section class="pane">
+    <section class="pane" id="sourcePane">
       <div class="pane-head">
-        <label>Source model</label>
-        <select id="category" title="Disease category (optional hint)"></select>
+        <label for="category">Source model</label>
+        <select id="category" aria-label="Disease category (optional hint)" title="Disease category (optional hint)"></select>
       </div>
       <div class="filebar">
         <button class="secondary mini" id="addFile">+ Add file</button>
         <label class="secondary mini" for="upload" style="cursor:pointer;">Upload files</label>
         <input type="file" id="upload" multiple hidden />
+        <button class="secondary mini" id="collapseAll" style="display:none;">Collapse all</button>
+        <span class="file-count" id="fileCount"></span>
       </div>
+      <details class="guide" open>
+        <summary>What to include</summary>
+        <p>Include the model definition and the files with parameter values / initial
+        conditions. Skip run scripts, plots, and tests. Export binary data
+        (<code>.rds</code>/<code>.mat</code>/<code>.npy</code>) to text first. A contact
+        matrix mainly conveys age structure.</p>
+      </details>
       <div id="files" class="files"></div>
+      <div class="drop-hint">Drop files to add</div>
     </section>
 
     <section class="pane">
@@ -190,7 +230,10 @@
           <button class="secondary" id="copy" style="padding:4px 10px;font-size:12px;font-weight:500;">Copy</button>
         </span>
       </div>
-      <pre id="output"></pre>
+      <div class="output-wrap">
+        <pre id="output"></pre>
+        <div class="placeholder" id="placeholder"></div>
+      </div>
     </section>
   </main>
 
@@ -226,6 +269,11 @@ let controller = null;
 let MAX_FILES = 10;
 let isRunning = false;
 let hasResult = false;   // a completed run left output that can be cleared
+const BINARY_EXT = new Set(["rds","rdata","mat","npy","npz","xlsx","xls","feather",
+  "parquet","pkl","pickle","h5","hdf5","nc","zip","gz","tar","png","jpg","jpeg",
+  "gif","bmp","pdf","doc","docx"]);
+const MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
+let elapsedTimer = null;
 
 async function loadConfig() {
   try {
@@ -257,11 +305,16 @@ function addFileBlock(filename = "", content = "") {
   block.className = "fileblock";
   block.innerHTML =
     `<div class="fb-head">` +
+    `<button class="fb-toggle" title="Collapse / expand" aria-label="Collapse or expand this file">▾</button>` +
     `<input type="text" class="fb-name" placeholder="filename (optional)" />` +
-    `<button class="fb-remove" title="Remove">×</button></div>` +
+    `<button class="fb-remove" title="Remove" aria-label="Remove this file">×</button></div>` +
     `<textarea class="fb-content" placeholder="Paste model source or parameter/data here…" spellcheck="false"></textarea>`;
   block.querySelector(".fb-name").value = filename;
   block.querySelector(".fb-content").value = content;
+  block.querySelector(".fb-toggle").addEventListener("click", (e) => {
+    const collapsed = block.classList.toggle("collapsed");
+    e.currentTarget.textContent = collapsed ? "▸" : "▾";
+  });
   block.querySelector(".fb-remove").addEventListener("click", () => {
     block.remove();
     if ($("files").children.length === 0) addFileBlock();
@@ -277,7 +330,10 @@ function addFileBlock(filename = "", content = "") {
 }
 
 function refreshAddState() {
-  $("addFile").disabled = $("files").children.length >= MAX_FILES;
+  const n = $("files").children.length;
+  $("addFile").disabled = n >= MAX_FILES;
+  $("fileCount").textContent = n === 1 ? "1 file" : `${n} files`;
+  $("collapseAll").style.display = n > 1 ? "" : "none";
 }
 
 function collectFiles() {
@@ -338,6 +394,7 @@ function updateActionBtn() {
 function clearRight() {   // clear the translation output + report only (keep source)
   $("output").textContent = "";
   resetReport();
+  setPhase("idle");
 }
 
 function clearAll() {     // full reset — both panes, status, and saved session
@@ -350,6 +407,7 @@ function clearAll() {     // full reset — both panes, status, and saved sessio
   try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ }
   hasResult = false;
   updateActionBtn();
+  setPhase("idle");
 }
 
 function resetReport() {
@@ -423,6 +481,31 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+// Output-pane empty / working state (shown over an empty output pane).
+function setPhase(phase) {   // 'idle' | 'working'
+  const ph = $("placeholder");
+  if ($("output").textContent.length > 0) { ph.hidden = true; return; }
+  ph.hidden = false;
+  ph.innerHTML = phase === "working"
+    ? `<div class="spinner"></div>` +
+      `<div>Translating — reasoning through the model.<br>This can take a minute or two.</div>` +
+      `<div id="elapsed"></div>`
+    : `<div><b>EpiTranslator</b> rewrites a disease model — written in <b>any language</b> ` +
+      `(R, Python, Julia, C++, Stan, …) — into a pandemic-simulator <code>model.py</code>.` +
+      `<br><br>Paste or upload a model on the left, then press <b>Translate</b>; ` +
+      `your <code>model.py</code> appears here.</div>`;
+}
+function startTimer() {
+  const t0 = Date.now();
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el = document.getElementById("elapsed");
+    if (el) el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} elapsed`;
+  }, 1000);
+}
+function stopTimer() { clearInterval(elapsedTimer); elapsedTimer = null; }
+
 async function translate() {
   const files = collectFiles();
   if (!files.length) { setStatus("Paste or upload some source first.", true); return; }
@@ -431,6 +514,8 @@ async function translate() {
   resetReport();
   setStatus("Translating…");
   setRunning(true);
+  setPhase("working");
+  startTimer();
   controller = new AbortController();
 
   try {
@@ -464,6 +549,7 @@ async function translate() {
         if (evt.report) { renderReport(evt.report); }
         if (evt.report_error) { showReportUnavailable(); }
         if (evt.text) {
+          $("placeholder").hidden = true;
           $("output").textContent += evt.text;
           bytes += evt.text.length;
           $("output").scrollTop = $("output").scrollHeight;
@@ -477,6 +563,8 @@ async function translate() {
     else setStatus("Request failed: " + e.message, true);
   } finally {
     setRunning(false);
+    stopTimer();
+    if (!$("output").textContent) setPhase("idle");
     saveSession();
   }
 }
@@ -506,18 +594,55 @@ $("copy").addEventListener("click", () => {
   setStatus("Copied.");
 });
 $("addFile").addEventListener("click", () => addFileBlock());
-$("upload").addEventListener("change", (e) => {
-  const files = [...e.target.files];
+$("collapseAll").addEventListener("click", () => {
+  const blocks = [...$("files").children];
+  const anyOpen = blocks.some((b) => !b.classList.contains("collapsed"));
+  blocks.forEach((b) => {
+    b.classList.toggle("collapsed", anyOpen);
+    b.querySelector(".fb-toggle").textContent = anyOpen ? "▸" : "▾";
+  });
+  $("collapseAll").textContent = anyOpen ? "Expand all" : "Collapse all";
+});
+
+// Add uploaded/dropped files, with size/type validation and clear feedback.
+function processFiles(fileList) {
   const free = MAX_FILES - $("files").children.length;
-  let skipped = 0;
-  files.forEach((file, i) => {
-    if (i >= free) { skipped++; return; }
+  let added = 0, cap = 0, big = 0, bin = 0;
+  for (const file of [...fileList]) {
+    if (added >= free) { cap++; continue; }
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (BINARY_EXT.has(ext)) { bin++; continue; }
+    if (file.size > MAX_FILE_BYTES) { big++; continue; }
+    added++;
     const reader = new FileReader();
     reader.onload = () => { addFileBlock(file.name, reader.result); scheduleSave(); };
     reader.readAsText(file);
-  });
-  if (skipped) setStatus(`skipped ${skipped} (max ${MAX_FILES})`, true);
-  e.target.value = "";
+  }
+  const parts = [];
+  if (added) parts.push(`added ${added} file${added > 1 ? "s" : ""}`);
+  if (bin) parts.push(`skipped ${bin} binary (export to text first)`);
+  if (big) parts.push(`skipped ${big} over 2 MB`);
+  if (cap) parts.push(`skipped ${cap} (max ${MAX_FILES} files)`);
+  if (parts.length) setStatus(parts.join(" · "), !!(bin || big || cap));
+}
+$("upload").addEventListener("change", (e) => { processFiles(e.target.files); e.target.value = ""; });
+
+// Drag-and-drop onto the source pane (file drags only — text drags into a textarea still work).
+const sourcePane = $("sourcePane");
+const isFileDrag = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+["dragenter", "dragover"].forEach((ev) => sourcePane.addEventListener(ev, (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  sourcePane.classList.add("dragover");
+}));
+["dragleave", "dragend"].forEach((ev) => sourcePane.addEventListener(ev, (e) => {
+  if (!sourcePane.contains(e.relatedTarget)) sourcePane.classList.remove("dragover");
+}));
+sourcePane.addEventListener("drop", (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  sourcePane.classList.remove("dragover");
+  if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
 });
 
 // --- Downloads ---------------------------------------------------------------
@@ -561,6 +686,7 @@ $("category").addEventListener("change", saveSession);
 if (!restoreSession()) addFileBlock();
 hasResult = $("output").textContent.trim().length > 0;   // prior run's result restored?
 updateActionBtn();
+setPhase("idle");
 loadConfig();
 loadSchemaDoc();
 </script>
