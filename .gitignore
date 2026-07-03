@@ -6,3 +6,9 @@ venv/
 .env
 *.egg-info/
 .pytest_cache/
+
+# Internal planning / agent-workflow artifacts — not for the public repo
+CLAUDE.md
+NOTES.md
+docs/ROADMAP.md
+docs/superpowers/
