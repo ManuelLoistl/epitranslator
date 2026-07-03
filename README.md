@@ -67,14 +67,25 @@ maintain (in `prompt_assets/`):
 | Target schema | [`prompt_assets/target_schema.py`](prompt_assets/target_schema.py) | An annotated reference of the framework's `Model`, `ParameterSchemaBuilder`, and `ValueType` — the same schema the app's **Schema reference** shows. |
 | Worked examples | [`prompt_assets/examples/`](prompt_assets/examples) | Before/after pairs (`source.<ext>` + `target.py`) — the highest-leverage ingredient. |
 
-The app makes **two** model calls: one streams the bare `model.py`, and a
-second, structured call produces the translation report — so the report can never
-leak into the code. The instructions + schema + examples are cached, so repeat
-translations only pay for the source you paste.
-
-Any change to these prompt assets is recorded in
+Any change to those three shared ingredients is recorded in
 [`docs/prompt-change-log.md`](docs/prompt-change-log.md) so it can be shared with
 the prompt's authors and stay aligned with the upstream schema.
+
+On top of that shared core, EpiTranslator adds a few pieces of its own so the
+app works end-to-end:
+
+| Addition | Where | What it does |
+|---|---|---|
+| Multi-file guidance | [`prompt_assets/multi_file_guidance.md`](prompt_assets/multi_file_guidance.md) | Appended to the instructions when you submit more than one file, telling the model how to reconcile several sources into a single `model.py`. |
+| File headers | assembly code | When you submit several files, each is wrapped in a `=== file: <name> ===` header so the model can tell them apart. A single pasted source is passed through unchanged. |
+| Disease-category hint | assembly code | If you pick a category, one line (`Disease category hint: …`) is added to the message — used only to disambiguate, never to override what the source says. |
+| Report instructions | [`prompt_assets/output_report.md`](prompt_assets/output_report.md) | Drives a **separate, structured** model call that produces the translation report (origin / severity / category and the fidelity notes). |
+
+So the app makes **two** model calls: one streams the bare `model.py`, and a
+second, structured call — driven by `output_report.md` — produces the
+translation report, so the report can never leak into the code. The shared
+instructions + schema + examples are cached, so repeat translations only pay
+for the source you paste.
 
 ---
 
