@@ -23,7 +23,7 @@ from typing import Iterator, Optional
 
 import anthropic
 
-logger = logging.getLogger("model-translator")
+logger = logging.getLogger("epitranslator")
 
 from backend.prompt import (
     build_system_prompt,

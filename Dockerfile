@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway provides $PORT at runtime; default to 8000 for local `docker run`.
+# Many hosts inject $PORT at runtime; default to 8000 for local `docker run`.
 ENV PORT=8000
 EXPOSE 8000
 
