@@ -3,7 +3,7 @@ FastAPI entry point for the disease-model translator.
 
 One real endpoint: POST /api/translate streams the translated code back via
 Server-Sent Events. Everything else serves the single-page UI and exposes a
-little config/health introspection so you can see what model is wired up.
+little config/health introspection to show what model is wired up.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from backend import categories as categories_mod
 from backend import prompt as prompt_assets
 from backend import translator
 
-logger = logging.getLogger("model-translator")
+logger = logging.getLogger("epitranslator")
 
 app = FastAPI(title="EpiTranslator", version="0.1.0")
 

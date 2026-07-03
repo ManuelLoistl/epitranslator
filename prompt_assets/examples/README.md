@@ -1,8 +1,8 @@
 # Worked examples (drop-in)
 
 Each example is one **before → after** translation pair that shows the model
-exactly what a correct translation into your target schema looks like. These are
-the single highest-value ingredient in the whole tool — one complete, correct
+exactly what a correct translation into the target schema looks like. These are
+the single highest-value component in the whole tool — one complete, correct
 pair teaches more than paragraphs of instructions.
 
 ## How to add an example

@@ -1,9 +1,11 @@
 # Prompt asset change log
 
-A record of every change made to the translator's **prompt assets**
-(`prompt_assets/system_prompt.md` and `prompt_assets/target_schema.py`),
-intended to be shared with the authors of the original prompts. Each entry gives
-the exact before/after, the reason, and the evidence that motivated it.
+A record of every change EpiTranslator makes to its **prompt assets**
+(`prompt_assets/system_prompt.md` and `prompt_assets/target_schema.py`) relative
+to the originals published in the Pandemic Simulator repo's documentation. It
+exists so it is clear where these prompts differ from those originals, and why.
+Each entry gives the exact before/after, the reason, and the evidence that
+motivated it.
 
 The prompt assets are the editable files that build the Claude system prompt:
 `system_prompt.md` (instructions) + `target_schema.py` (the schema reference the
@@ -114,7 +116,7 @@ edits:
 
 All four re-runs compile. Verified 2026-07-01.
 
-### Notes for the prompt authors
+### Notes
 
 - The bug was purely in the *guidance*, not the framework — the schema itself is
   fine; it just lacked a density-dependent edge and its docstring mislabeled the
@@ -141,8 +143,7 @@ translation-report addendum described in the instructions") to avoid suppressing
 the report addendum when the model considers both the system prompt and the user 
 message. Part of the "honest-parameter /
 dynamics-free handling" feature: a two-tier UI (an attention banner + an
-expandable panel auditing every parameter translation). Design
-spec: `docs/superpowers/specs/2026-07-01-translation-report-design.md`.
+expandable panel auditing every parameter translation).
 
 ### Change to `prompt_assets/system_prompt.md` ("What you output" section)
 
@@ -162,9 +163,8 @@ no markdown code fences around it. (The
 
 New file `prompt_assets/output_report.md` added and appended by `build_system_prompt()`.
 
-Two prompt-asset changes, following the project rule of **preferring a new
-appended file over editing the existing prompt** (see
-[../CLAUDE.md](../CLAUDE.md)):
+Two prompt-asset changes, following the project's prompt-stability rule of
+**preferring a new appended file over editing the existing prompt**:
 
 1. **New file `prompt_assets/output_report.md`** — appended to the system prompt
    as its final section by `build_system_prompt()`. Instructs the model to emit,
@@ -262,13 +262,10 @@ impossible), code compiles; `mpox_run` correctly flags `high`/`no_dynamics`.
 
 ## 2026-07-01 — New appended file: multi-file input guidance
 
-**Status: implemented 2026-07-01.** Part of the multi-file input feature
-(roadmap #2). Design spec:
-`docs/superpowers/specs/2026-07-01-multi-file-input-design.md`.
+**Status: implemented 2026-07-01.** Part of the multi-file input feature.
 
-**No edits to existing prompt files.** Following the project prompt-stability
-rule (see [../CLAUDE.md](../CLAUDE.md)), this is a **new appended prompt-asset
-file only**.
+**No edits to existing prompt files.** Following the project's prompt-stability
+rule, this is a **new appended prompt-asset file only**.
 
 ### New file `prompt_assets/multi_file_guidance.md`
 

@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>EpiTranslator — disease model translator</title>
-<meta name="description" content="EpiTranslator rewrites a disease model — written in any language — into the WHO pandemic-simulator compartmental schema." />
+<meta name="description" content="EpiTranslator rewrites a disease model — written in any language — into the Pandemic Simulator's compartmental schema." />
 <meta property="og:title" content="EpiTranslator" />
-<meta property="og:description" content="Rewrite a disease model, in any language, into the pandemic-simulator schema." />
+<meta property="og:description" content="Rewrite a disease model, in any language, into the Pandemic Simulator's compartmental schema." />
 <meta property="og:type" content="website" />
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 <style>
@@ -171,6 +171,7 @@
   /* --- source pane: guidance, file accordion, drag-drop --- */
   #sourcePane { position: relative; }
   .filebar .file-count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .filebar .drag-note { color: var(--muted); font-size: 12px; }
   .guide { font-size: 12px; color: var(--muted); padding: 6px 16px;
            border-bottom: 1px solid var(--border); }
   .guide summary { cursor: pointer; user-select: none; }
@@ -228,7 +229,7 @@
   <header>
     <div class="brand">
       <h1><img src="/static/favicon.svg" width="22" height="22" alt="" />EpiTranslator</h1>
-      <span class="tagline">Translate a disease model into the pandemic-simulator schema</span>
+      <span class="tagline">Translate a disease model into the Pandemic Simulator schema</span>
     </div>
     <span class="meta" id="meta">loading config…</span>
     <button class="secondary mini" id="schemaBtn" style="margin-left:auto;">Schema reference</button>
@@ -247,6 +248,7 @@
         <button class="secondary mini" id="addFile">+ Add code</button>
         <button class="secondary mini" id="uploadBtn">↑ Upload files</button>
         <input type="file" id="upload" multiple hidden />
+        <span class="drag-note">or drag &amp; drop them anywhere here</span>
         <button class="secondary mini" id="collapseAll" style="display:none;">Collapse all</button>
         <span class="file-count" id="fileCount"></span>
       </div>
@@ -291,7 +293,7 @@
 
   <dialog id="schemaModal" class="modal-box" aria-label="Target schema reference">
     <div class="modal-head">
-      <span>Target schema reference — the contract your translated model.py conforms to</span>
+      <span>Target schema reference — the contract the translated model.py conforms to</span>
       <span style="display:flex; gap:8px;">
         <button class="secondary mini" id="schemaDownload">Download</button>
         <button class="secondary mini" id="schemaClose">Close</button>
@@ -582,7 +584,7 @@ function setPhaseError(msg) {   // shown over an empty output pane when a run fa
   ph.hidden = false;
   ph.className = "placeholder error";
   ph.innerHTML = `<div><b>Translation failed.</b><br>${escapeHtml(msg)}` +
-    `<br><br>Adjust your input and press <b>Translate</b> again.</div>`;
+    `<br><br>Adjust the input and press <b>Translate</b> again.</div>`;
 }
 function setPhase(phase) {   // 'idle' | 'working'
   const ph = $("placeholder");
@@ -594,9 +596,9 @@ function setPhase(phase) {   // 'idle' | 'working'
       `<div>Translating — reasoning through the model.<br>This can take a minute or two.</div>` +
       `<div id="elapsed"></div>`
     : `<div><b>EpiTranslator</b> rewrites a disease model — written in <b>any language</b> ` +
-      `(R, Python, Julia, C++, Stan, …) — into a pandemic-simulator <code>model.py</code>.` +
+      `(R, Python, Julia, C++, Stan, …) — into a Pandemic Simulator <code>model.py</code>.` +
       `<br><br>Paste or upload a model on the left, then press <b>Translate</b>; ` +
-      `your <code>model.py</code> appears here.</div>`;
+      `the translated <code>model.py</code> appears here.</div>`;
 }
 function startTimer() {
   const t0 = Date.now();

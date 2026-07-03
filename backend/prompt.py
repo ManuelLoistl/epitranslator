@@ -1,8 +1,8 @@
 """
 Assembles the translation prompt from the editable files in ``prompt_assets/``.
 
-The whole point of keeping this in plain files is that you can drop your real
-prompt, schema, and examples in without touching Python:
+The whole point of keeping this in plain files is that the prompt, schema, and
+examples can be edited without touching Python:
 
     prompt_assets/system_prompt.md   -> translation instructions
     prompt_assets/target_schema.py   -> the Python target schema
@@ -11,7 +11,7 @@ prompt, schema, and examples in without touching Python:
 
 The system prompt is the *stable* part of every request (instructions + schema +
 examples), so it is cached on the API side — repeat translations only pay for
-the source code you paste in. See build_system_prompt() / build_user_message().
+the newly submitted source. See build_system_prompt() / build_user_message().
 """
 from __future__ import annotations
 
