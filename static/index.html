@@ -170,7 +170,6 @@
   .modal-box pre { padding:16px; overflow:auto; white-space:pre; }
   /* --- source pane: guidance, file accordion, drag-drop --- */
   #sourcePane { position: relative; }
-  .filebar .file-count { color: var(--muted); font-size: 12px; margin-left: auto; }
   .filebar .drag-note { color: var(--muted); font-size: 12px; }
   .guide { font-size: 12px; color: var(--muted); padding: 6px 16px;
            border-bottom: 1px solid var(--border); }
@@ -250,7 +249,6 @@
         <input type="file" id="upload" multiple hidden />
         <span class="drag-note">or drag &amp; drop them anywhere here</span>
         <button class="secondary mini" id="collapseAll" style="display:none;">Collapse all</button>
-        <span class="file-count" id="fileCount"></span>
       </div>
       <details class="guide" open>
         <summary>What to include</summary>
@@ -419,7 +417,6 @@ function addFileBlock(filename = "", content = "", atTop = false) {
 function refreshAddState() {
   const n = $("files").children.length;
   $("addFile").disabled = n >= MAX_FILES;
-  $("fileCount").textContent = n === 1 ? "1 file" : `${n} files`;
   $("collapseAll").style.display = n > 1 ? "" : "none";
 }
 
