@@ -3,16 +3,15 @@
 **Live at [epitranslator.com](https://epitranslator.com).**
 
 EpiTranslator helps disease modelers bring an existing model into the **Pandemic
-Simulator**. A model — written in **any language** (R, Python, Julia, C++, Stan,
-…) — is pasted or uploaded and rewritten into the Pandemic Simulator's
+Simulator** by creating a draft version rewritten into the Pandemic Simulator's
 compartmental Python schema
-([`model.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/model.py)),
-streamed back for review alongside a **translation report** that flags anything
-needing a closer look.
+([`model.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/model.py)). A disease model written in **any language** (R, Python, Julia, C++, Stan,
+…) is pasted or uploaded into the EpiTranslater and streamed back for review alongside a **translation report** that flags anything
+needing a closer look. The application uses Claude Code Opus 4.6 for disease model translation based on the [WHO-Collaboratory/pandemic-simulator-compartment](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment) documentation instructions, including prompts provided for model translation.
 
 It's a translation *aid*: it does the tedious first pass, but the modeler
-reviews, adjusts, and owns the result. There is no automated validation by
-design — the code is shown raw for a modeler to check.
+reviews, adjusts, and owns the result. There is no automated model validation by
+design, the code is shown raw for a modeler to check.
 
 ## Using it
 
@@ -23,24 +22,24 @@ At **[epitranslator.com](https://epitranslator.com)**:
    are concatenated into one source. *Include* the model definition and the files
    holding parameter values / initial conditions; *skip* run scripts, plots, and
    tests; export binary data (`.rds`/`.mat`/`.npy`) to text first. (A contact
-   matrix mainly conveys age structure — the schema uses built-in Prem 2021
+   matrix mainly conveys age structure. The schema uses built-in Prem 2021
    matrices, not pasted cell values.)
-2. Optionally pick a **disease category** — a disambiguation hint only; it never
+2. Optionally pick a **disease category**, which serves as a disambiguation hint only; it never
    overrides the source.
 3. Press **Translate**. The `model.py` streams into the right pane with syntax
    highlighting.
 4. Review the **translation report**: an attention banner (guessed parameters,
    dropped structure, a dynamics-free source) and an audit of every compartment,
-   parameter, and intervention, each tagged with its provenance —
+   parameter, and intervention, each tagged with its provenance:
    `source` / `converted` / `derived` / `guessed`.
-5. **Copy or download** the `model.py` and take it into the Pandemic Simulator.
+5. **Copy or download** the `model.py`, make final adjustments and take it into the Pandemic Simulator.
 
 The **Schema reference** button (top right) shows the exact target schema.
 
 ## The target framework
 
 EpiTranslator translates *into* the **Pandemic Simulator**'s compartmental model
-format. The repo below — published on the WHO Collaboratory GitHub account — is
+format. The repo below, published on the WHO Collaboratory GitHub account, is
 authoritative for how a `model.py` must be structured and what the schema can
 (and can't) express:
 
@@ -55,7 +54,7 @@ authoritative for how a `model.py` must be structured and what the schema can
 A translation is only as good as the fit between the source and the schema the
 repo defines. When a model carries machinery the compartmental schema can't
 express (e.g. an economic layer, agent-based rules, or bespoke intervention
-scheduling), the report flags what was approximated or dropped — a cue to review
+scheduling), the report flags what was approximated or dropped, a cue to review
 closely.
 
 ## Behind the curtain
@@ -67,12 +66,12 @@ kept close to the originals published in the repo's documentation (in
 | Component | File | What it is |
 |---|---|---|
 | Instructions | [`prompt_assets/system_prompt.md`](prompt_assets/system_prompt.md) | The translation instructions. |
-| Target schema | [`prompt_assets/target_schema.py`](prompt_assets/target_schema.py) | An annotated reference of the framework's `Model`, `ParameterSchemaBuilder`, and `ValueType` — the same schema the app's **Schema reference** shows. |
+| Target schema | [`prompt_assets/target_schema.py`](prompt_assets/target_schema.py) | An annotated reference of the framework's `Model`, `ParameterSchemaBuilder`, and `ValueType`. The same schema the Pandemic Simulator's **Schema reference** documentation shows. |
 | Worked examples | [`prompt_assets/examples/`](prompt_assets/examples) | Before/after pairs (`source.<ext>` + `target.py`) — the highest-leverage of the three. |
 
 Any change EpiTranslator makes to those three shared components is recorded in
 [`docs/prompt-change-log.md`](docs/prompt-change-log.md), so it is clear where
-these prompts differ from the originals in the repo's documentation, and why.
+these prompts differ from the originals in the repo's documentation, and why. Each edited prompt remains and will always remain as close as possible to the Pandemic Simulator's prompt. Only small adjustments necessary to fit the EpiTranslators automated workflow are done.
 
 On top of that shared core, EpiTranslator adds a few pieces of its own so the
 app works end-to-end:
@@ -85,7 +84,7 @@ app works end-to-end:
 | Report instructions | [`prompt_assets/output_report.md`](prompt_assets/output_report.md) | Drives a **separate, structured** model call that produces the translation report (origin / severity / category and the fidelity notes). |
 
 So the app makes **two** model calls: one streams the bare `model.py`, and a
-second, structured call — driven by `output_report.md` — produces the
+second, structured call, driven by `output_report.md`, produces the
 translation report, so the report can never leak into the code. The shared
 instructions + schema + examples are cached, so repeat translations only pay
 for the newly pasted source.
