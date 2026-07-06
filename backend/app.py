@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import MutableHeaders
 
 from backend import categories as categories_mod
 from backend import prompt as prompt_assets
@@ -24,6 +25,51 @@ from backend import translator
 logger = logging.getLogger("epitranslator")
 
 app = FastAPI(title="EpiTranslator", version="0.1.0")
+
+# Security headers on every response. A pragmatic CSP: it locks where the page
+# may connect (connect-src 'self'), and blocks framing, plugins, and <base>
+# tricks. 'unsafe-inline' stays only because the app's script/style are inline,
+# so this narrows an XSS's blast radius rather than blocking inline injection
+# outright. Applied as pure-ASGI middleware so it never buffers the SSE body.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'none'; "
+        "frame-ancestors 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+}
+
+
+class SecurityHeadersMiddleware:
+    """Stamp security headers on each HTTP response without touching the body."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for key, value in _SECURITY_HEADERS.items():
+                    headers.setdefault(key, value)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Cap on how many files one translation request may carry. Enforced here
 # (authoritative) and surfaced via /api/health so the UI mirrors it.
