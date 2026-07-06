@@ -343,7 +343,7 @@ function pyHighlight(src) {
       out += `<span class="n">${esc(src.slice(i, j))}</span>`; i = j; continue; }
     if (/[A-Za-z_]/.test(c)) { let j = i; while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
       const w = src.slice(i, j);
-      out += PY_KW.has(w) ? `<span class="k">${w}</span>` : esc(w); i = j; continue; }
+      out += PY_KW.has(w) ? `<span class="k">${esc(w)}</span>` : esc(w); i = j; continue; }
     out += esc(c); i++;
   }
   return out;
@@ -469,11 +469,12 @@ function setRunning(r) {
 }
 
 // The footer's second button is dual-state: "Stop" while a run is in progress,
-// otherwise "Clear" — enabled only once a run has completed (hasResult).
+// otherwise "Clear" — enabled whenever there's something to clear (a completed
+// result, or source in the left pane, e.g. after a Stop).
 function updateActionBtn() {
   const b = $("clear");
   b.textContent = isRunning ? "Stop" : "Clear";
-  b.disabled = isRunning ? false : !hasResult;
+  b.disabled = isRunning ? false : !(hasResult || collectFiles().length > 0);
 }
 
 function clearRight() {   // clear the translation output + report only (keep source)
@@ -570,8 +571,8 @@ function renderReport(r) {
 }
 
 function escapeHtml(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 // Output-pane empty / working state (shown over an empty output pane).
@@ -609,6 +610,7 @@ function startTimer() {
 function stopTimer() { clearInterval(elapsedTimer); elapsedTimer = null; }
 
 async function translate() {
+  if (isRunning) return;   // a run is already active (the keyboard shortcut bypasses the disabled button)
   const files = collectFiles();
   if (!files.length) { setStatus("Paste or upload some source first.", true); return; }
 
@@ -638,30 +640,45 @@ async function translate() {
     let buf = "";
     let bytes = 0;
 
+    // Process one SSE frame. Returns true if it was a terminal (error/done)
+    // event and the caller should stop reading.
+    const handleFrame = (part) => {
+      const line = part.trim();
+      if (!line.startsWith("data:")) return false;
+      let evt;
+      try {
+        evt = JSON.parse(line.slice(5).trim());
+      } catch (_) {
+        return false;   // ignore a malformed frame rather than failing the run
+      }
+      if (evt.error) { setStatus(evt.error, true); errored = true; setPhaseError(evt.error); return true; }
+      if (evt.done) { hasResult = true; renderOutput(); setStatus(`Done · ${bytes.toLocaleString()} chars`); return true; }
+      if (evt.status) { setStatus(evt.status); }
+      if (evt.report) { renderReport(evt.report); }
+      if (evt.report_error) { showReportUnavailable(); }
+      if (evt.text) {
+        $("placeholder").hidden = true;
+        outputRaw += evt.text;
+        $("output").textContent += evt.text;
+        bytes += evt.text.length;
+        $("output").scrollTop = $("output").scrollHeight;
+      }
+      return false;
+    };
+
     while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
       const parts = buf.split("\n\n");
       buf = parts.pop();
       for (const part of parts) {
-        const line = part.trim();
-        if (!line.startsWith("data:")) continue;
-        const evt = JSON.parse(line.slice(5).trim());
-        if (evt.error) { setStatus(evt.error, true); errored = true; setPhaseError(evt.error); setRunning(false); return; }
-        if (evt.done) { setStatus(`Done · ${bytes.toLocaleString()} chars`); hasResult = true; renderOutput(); setRunning(false); return; }
-        if (evt.status) { setStatus(evt.status); }
-        if (evt.report) { renderReport(evt.report); }
-        if (evt.report_error) { showReportUnavailable(); }
-        if (evt.text) {
-          $("placeholder").hidden = true;
-          outputRaw += evt.text;
-          $("output").textContent += evt.text;
-          bytes += evt.text.length;
-          $("output").scrollTop = $("output").scrollHeight;
-        }
+        if (handleFrame(part)) { setRunning(false); return; }
       }
     }
+    // Stream closed. Flush a final frame left in buf (a {done}/{report} that
+    // arrived without a trailing blank line).
+    if (buf.trim() && handleFrame(buf)) { setRunning(false); return; }
     hasResult = true;
     renderOutput();
     setStatus(`Done · ${bytes.toLocaleString()} chars`);
@@ -751,7 +768,7 @@ async function processFiles(fileList) {
   const contents = await Promise.all(accepted.map((f) => f.text()));
   // insert the batch at the top, preserving the selected file order
   for (let i = accepted.length - 1; i >= 0; i--) addFileBlock(accepted[i].name, contents[i], true);
-  if (accepted.length) scheduleSave();
+  if (accepted.length) { scheduleSave(); updateActionBtn(); }
 
   const lines = [];
   if (accepted.length) lines.push(`✓ Added ${accepted.length} file${accepted.length > 1 ? "s" : ""}: ${accepted.map((f) => f.name).join(", ")}`);
@@ -817,7 +834,7 @@ $("schemaDownload").addEventListener("click", () => {
 });
 
 // --- Persistence wiring ------------------------------------------------------
-$("files").addEventListener("input", scheduleSave);
+$("files").addEventListener("input", () => { scheduleSave(); updateActionBtn(); });
 $("category").addEventListener("change", saveSession);
 
 // --- Init --------------------------------------------------------------------
