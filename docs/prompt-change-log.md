@@ -1,11 +1,17 @@
 # Prompt asset change log
 
-A record of every change EpiTranslator makes to its **prompt assets**
-(`prompt_assets/system_prompt.md` and `prompt_assets/target_schema.py`) relative
-to the originals published in the Pandemic Simulator repo's documentation. It
-exists so it is clear where these prompts differ from those originals, and why.
-Each entry gives the exact before/after, the reason, and the evidence that
-motivated it.
+A record of every change EpiTranslator makes to the **upstream-owned prompt
+files** — `prompt_assets/system_prompt.md`, `prompt_assets/target_schema.py`, and
+the worked `prompt_assets/examples/` — relative to the originals published in the
+Pandemic Simulator repo's documentation. It exists so it is clear where these
+prompts differ from those originals, and why. Each entry gives the exact
+before/after, the reason, and the evidence that motivated it.
+
+**Scope: only changes to those upstream originals are recorded here.**
+EpiTranslator's own prompt assets — the report-call instructions
+(`output_report.md`), the multi-file guidance (`multi_file_guidance.md`), and any
+other app-specific files — are not shared with the upstream project and do not
+diverge from it, so their changes are deliberately kept out of this log.
 
 The prompt assets are the editable files that build the Claude system prompt:
 `system_prompt.md` (instructions) + `target_schema.py` (the schema reference the
@@ -131,157 +137,3 @@ All four re-runs compile. Verified 2026-07-01.
 - All other models in the test either translated faithfully or were simplified
   with visible `# NOTE:` comments; this was the only silently-wrong output among
   genuinely compartmental sources.
-
-### Output-report addendum (translation-report feature)
-
-**Implementation note:** `backend/prompt.py`'s `build_user_message()` was also 
-softened to remove the "Output **only** the bare translated Python code" 
-constraint (changed to "Output the bare translated Python code, then the 
-translation-report addendum described in the instructions") to avoid suppressing 
-the report addendum when the model considers both the system prompt and the user 
-message. Part of the "honest-parameter /
-dynamics-free handling" feature: a two-tier UI (an attention banner + an
-expandable panel auditing every parameter translation).
-
-#### Change to `prompt_assets/system_prompt.md` ("What you output" section)
-
-Before:
-```
-Output **only** the complete contents of `model.py` — bare Python source,
-ready to save. No prose, no explanation, no markdown code fences. (The
-```
-
-After:
-```
-Output the complete contents of `model.py` — bare Python source, ready to
-save — then the translation-report addendum described at the end of this
-prompt (after a sentinel line). No prose or explanation around the code, and
-no markdown code fences around it. (The
-```
-
-New file `prompt_assets/output_report.md` added and appended by `build_system_prompt()`.
-
-Two prompt-asset changes, following the project's prompt-stability rule of
-**preferring a new appended file over editing the existing prompt**:
-
-1. **New file `prompt_assets/output_report.md`** — appended to the system prompt
-   as its final section by `build_system_prompt()`. Instructs the model to emit,
-   after the bare `model.py`, a sentinel line `# ---TRANSLATION-REPORT---`
-   followed by a single JSON object reporting: (a) **every** declared element —
-   compartments, parameters/edge rates, and interventions — each with its
-   provenance `origin` ∈ {`source`, `converted`, `derived`, `guessed`} (each kind
-   uses the applicable subset) — and (b) `attention` items with `severity` ∈
-   {`high`, `info`} and `category` ∈ {`no_dynamics`, `invented`,
-   `dropped_structure`, `model_mismatch`, `ambiguity`}. Additive; does not touch
-   the existing prompt files.
-
-2. **One-line edit to `system_prompt.md`** ("What you output" section) — soften
-   *"Output **only** the complete contents of `model.py`…"* to acknowledge the
-   output addendum, so the new report instruction does not contradict it. This is
-   the minimal edit needed to resolve the contradiction; rationale is the report
-   feature. (Chosen over leaving it untouched because a direct contradiction
-   risks the model dropping the report.)
-
-#### Verification (2026-07-01)
-
-Live end-to-end confirmed the model emits a valid report and the code stays clean
-(no sentinel leak, code compiles) on three sources:
-- **epicookbook SIR** — 3 compartments + 2 parameters, all `origin: source`.
-- **`mpox_run.R` (dynamics-free wrapper)** — a `high`/`no_dynamics` attention item
-  ("Source contained no model dynamics") with all compartments/most parameters
-  flagged `guessed` — the intended honest handling of a wrong-file paste.
-- **`wuhan_seir.R`** — parameter provenance `derived` (β from R₀) and `converted`
-  (unit transforms), plus dropped-age-structure attention items.
-Graceful degradation confirmed: with `output_report.md` removed, no report event is
-emitted and the app shows code only, without error.
-
-#### Follow-up hardening (2026-07-01)
-
-Live browser testing showed the model sometimes ignored the exact format and wrote
-the report as a **paraphrased comment block** (`# ===TRANSLATION REPORT===` with
-`# -` bullet prose) instead of the sentinel + raw JSON — which then leaked into the
-code pane. Hardening, so the report can never appear as code:
-
-- **`prompt_assets/output_report.md` strengthened** (prompt change): emphasizes the
-  sentinel must be copied verbatim (not paraphrased, no `=`), that everything after
-  it is **raw JSON only** (starts `{`, ends `}`), and an explicit "do NOT write the
-  report as Python comments / do NOT prefix lines with `#` / do NOT use code fences"
-  list, including a "if you catch yourself writing `# - …` bullets, STOP" note.
-- **`backend/report.py` (code, not prompt):** the sentinel matcher is now a tolerant
-  regex (accepts paraphrased dividers) so a non-canonical divider is still stripped
-  out of the code; and `parse_report` falls back to the outermost `{…}` span so a
-  stray prefix/fence around valid JSON still parses.
-- **UI:** the report moved to a full-width drawer below both panes (code pane holds
-  only code).
-
-### Re-architecture: translation report via a separate structured call
-
-Replaces the in-stream "sentinel + JSON after
-the code" approach (the two entries above) — that proved unreliable: the model
-would sometimes paraphrase the sentinel and write the report as `#` comment prose,
-which then leaked into the code pane (observed twice in the browser). Prompt
-wording could not make single-call emission reliable.
-
-**New design — two calls:**
-
-1. **Code call** — unchanged from the original: produces **only** the bare
-   `model.py`. The report instructions were removed from this call entirely, so
-   the code output can never contain a report by construction. Reverts:
-   - `prompt_assets/system_prompt.md` "What you output" restored to the original
-     *"Output **only** the complete contents of `model.py`…"* (undoes the earlier
-     softening).
-   - `backend/prompt.py` `build_system_prompt()` no longer appends the report
-     file; `build_user_message()` restored to *"Output only the bare translated
-     Python code."*
-2. **Report call** (new, `backend/translator.py::generate_report`) — a second
-   call that reads the source + generated `model.py` and returns the report as a
-   JSON object via **structured outputs** (`output_config.format` with a
-   `json_schema`). The schema guarantees a valid object matching the report shape
-   (attention / compartments / parameters / interventions with `origin`
-   provenance); the model cannot emit prose or leak into code. Runs at low effort
-   on a configurable model (`TRANSLATOR_REPORT_MODEL`, default = translation model).
-
-**Prompt-asset change:** `prompt_assets/output_report.md` was rewritten from
-"emit a sentinel + JSON after the code" formatting rules into **classification
-instructions** for the report call (what `origin`/`severity`/`category` mean, what
-to include). It is no longer part of the system prompt; it is the report call's
-system prompt (`build_report_system_prompt()`).
-
-**Removed:** `backend/report.py` (sentinel splitter + tolerant regex) and its
-tests — obsolete now that code and report come from separate calls.
-
-**Verified 2026-07-01 (live):** epicookbook SIR and `mpox_run.R` (wrong-file) both
-produce a valid report with **zero report text in the code pane** (structurally
-impossible), code compiles; `mpox_run` correctly flags `high`/`no_dynamics`.
-
-### New appended file: multi-file input guidance
-
-Part of the multi-file input feature.
-
-**No edits to existing prompt files.** Following the project's prompt-stability
-rule, this is a **new appended prompt-asset file only**.
-
-#### New file `prompt_assets/multi_file_guidance.md`
-
-Appended to the system prompt as its final section by `build_system_prompt()`
-(after the worked examples). It tells the model, **when the source is supplied
-as several files** (each under a `=== file: ... ===` header), to:
-
-- treat the files as one model, with the dynamics file authoritative for
-  structure;
-- take numeric values from parameter/data files instead of guessing defaults;
-- not invent structure from a dynamics-free run wrapper / entry-point / config;
-- read a contact matrix as *age/group structure* (→ `add_demographic_group`),
-  not transcribe its cell values (the schema uses built-in Prem 2021 matrices,
-  with `set_contact_override` for specific deviations).
-
-**Purpose / rationale:** testing across different disease models found that
-parameters often live in separate files, so a single paste has structure but no
-numbers and the tool fills plausible defaults. Multi-file input lets the
-modeler supply those files; this guidance steers the model to use the supplied
-numbers and to keep the contact-matrix expectation honest. Phrased conditionally
-("when several files are provided…") so it is a harmless no-op for single-file
-pastes and the cached system prompt stays stable.
-
-**Wiring (assembly code, not prompt content):** `_MULTI_FILE_FILE` appended in
-`build_system_prompt()`; `assets_status()` gains `multi_file_guidance_present`.
