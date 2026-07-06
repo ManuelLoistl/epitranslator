@@ -5,8 +5,7 @@
 EpiTranslator helps disease modelers bring an existing model into the **Pandemic
 Simulator** by creating a draft version rewritten into the Pandemic Simulator's
 compartmental Python schema
-([`model.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/model.py)). A disease model written in **any language** (R, Python, Julia, C++, Stan,
-…) is pasted or uploaded into EpiTranslator and streamed back for review alongside a **translation report** that flags anything
+([`model.py`](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/compartment/model.py)). A disease model written in **any language** (R, Python, Julia, C++, Stan, etc.) is pasted or uploaded into EpiTranslator and streamed back for review alongside a **translation report** that flags anything
 needing a closer look. The application uses Claude (Opus 4.8 by default, configurable) via the Anthropic API for disease model translation, based on the [WHO-Collaboratory/pandemic-simulator-compartment](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment) documentation instructions, including prompts provided for model translation.
 
 It's a translation *aid*: it does the tedious first pass, but the modeler
