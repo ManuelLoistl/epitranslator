@@ -399,6 +399,7 @@ function addFileBlock(filename = "", content = "", atTop = false) {
     if ($("files").children.length === 0) addFileBlock();
     refreshAddState();
     scheduleSave();
+    updateActionBtn();   // source may now be empty -> disable Clear
   });
   block.querySelector(".fb-content").addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
@@ -679,9 +680,15 @@ async function translate() {
     // Stream closed. Flush a final frame left in buf (a {done}/{report} that
     // arrived without a trailing blank line).
     if (buf.trim() && handleFrame(buf)) { setRunning(false); return; }
-    hasResult = true;
-    renderOutput();
-    setStatus(`Done · ${bytes.toLocaleString()} chars`);
+    // Reaching here means the stream ended without a {done} or {error} frame —
+    // the connection was cut mid-response. Don't report success.
+    errored = true;
+    const cutMsg = outputRaw
+      ? "Connection closed before the translation finished — the output may be incomplete."
+      : "Connection closed before the translation could start. Please try again.";
+    setStatus(cutMsg, true);
+    setPhaseError(cutMsg);   // no-op when partial output is already present
+    if (outputRaw) { hasResult = true; renderOutput(); }
   } catch (e) {
     if (e.name === "AbortError") setStatus("Stopped.");
     else { setStatus("Request failed: " + e.message, true); errored = true; setPhaseError(e.message); }
