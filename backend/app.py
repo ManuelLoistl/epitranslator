@@ -134,9 +134,9 @@ async def translate(payload: dict, request: Request) -> StreamingResponse:
             else:
                 yield _sse({"report_error": True})
             yield _sse({"done": True})
-        except Exception as exc:  # surface a clean message to the UI
+        except Exception:  # full detail is logged; the client gets a generic message
             logger.exception("translation failed")
-            yield _sse({"error": f"{type(exc).__name__}: {str(exc)[:400]}"})
+            yield _sse({"error": "Translation failed — please try again in a moment."})
 
     return StreamingResponse(
         event_stream(),
