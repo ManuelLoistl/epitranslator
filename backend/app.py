@@ -37,9 +37,30 @@ RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
 _rate_hits: dict[str, list[float]] = {}
 
 
+def _client_ip(request: Request) -> str:
+    """Best-effort real client IP for rate limiting.
+
+    Behind a proxy (e.g. Railway's edge) the socket peer is the proxy, so every
+    user would share one bucket. Prefer the first hop of X-Forwarded-For, which
+    the proxy sets. For rate limiting only — X-Forwarded-For is client-spoofable
+    and must not be used for anything security-sensitive.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 def _rate_limited(ip: str) -> bool:
-    """True once this IP exceeds RATE_LIMIT_MAX requests within the window."""
+    """True once this IP exceeds RATE_LIMIT_MAX requests within the window.
+
+    Also evicts IPs whose timestamps have all aged out, so the map stays bounded
+    by the number of *recently active* clients rather than every IP ever seen.
+    """
     now = time.time()
+    for stale in [k for k, ts in _rate_hits.items()
+                  if all(now - t >= RATE_LIMIT_WINDOW for t in ts)]:
+        del _rate_hits[stale]
     hits = [t for t in _rate_hits.get(ip, []) if now - t < RATE_LIMIT_WINDOW]
     hits.append(now)
     _rate_hits[ip] = hits
@@ -87,7 +108,7 @@ async def translate(payload: dict, request: Request) -> StreamingResponse:
     Response: SSE stream of {"text": "..."} events, then {"done": true},
     or {"error": "..."} on failure.
     """
-    ip = request.client.host if request.client else "unknown"
+    ip = _client_ip(request)
     files = payload.get("files")
     too_many = isinstance(files, list) and len(files) > MAX_FILES
     if isinstance(files, list) and files:
