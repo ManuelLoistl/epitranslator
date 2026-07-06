@@ -43,9 +43,14 @@ def _strip_code_fences(chunks: Iterator[str]) -> Iterator[str]:
     to. We want bare code, so strip an opening fence (first line) and a closing
     fence (last line) as the text streams, using one line of look-ahead so the
     trailing fence can be dropped before it's emitted.
+
+    The trailing fence is only stripped when an opening fence was actually
+    consumed, so bare code that legitimately ends in a ``` line (e.g. the last
+    line of a docstring, or a stream truncated mid-string) is left intact.
     """
     buf = ""
     first_line_handled = False
+    opened = False  # True once we've consumed a leading ``` fence
     held: str | None = None  # last completed line, held back for look-ahead
 
     def is_fence(s: str) -> bool:
@@ -61,16 +66,19 @@ def _strip_code_fences(chunks: Iterator[str]) -> Iterator[str]:
             if not first_line_handled:
                 first_line_handled = True
                 if is_fence(line):
+                    opened = True
                     continue  # drop opening fence
             if held is not None:
                 yield held + "\n"
             held = line
 
     # End of stream. `buf` is any trailing text after the last newline.
+    # Only strip a trailing fence if an opening fence was actually consumed;
+    # otherwise a lone ``` that is real code would be silently dropped.
     if buf.strip() == "":
-        if held is not None and not is_fence(held):
+        if held is not None and not (opened and is_fence(held)):
             yield held + "\n"
-    elif is_fence(buf):
+    elif opened and is_fence(buf):
         if held is not None:
             yield held + "\n"
     else:
