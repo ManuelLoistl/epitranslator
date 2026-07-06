@@ -24,5 +24,6 @@ them into the system prompt under a "WORKED EXAMPLES" heading. The file
 extension of `source.*` is used to tell the model the source language.
 
 Add as many pairs as you like (covering different source languages / model
-types). Delete this README once you have real examples — it is ignored either
-way.
+types); the backend picks them up automatically. This README is contributor
+guidance only — it is never injected into the prompt (the loader only reads
+`source.*` + `target.py` inside each subdirectory).

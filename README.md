@@ -86,9 +86,10 @@ app works end-to-end:
 
 So the app makes **two** model calls: one streams the bare `model.py`, and a
 second, structured call, driven by `output_report.md`, produces the
-translation report, so the report can never leak into the code. The shared
-instructions + schema + examples are cached, so repeat translations only pay
-for the newly pasted source.
+translation report, so the report can never leak into the code. The first
+call's shared prefix — instructions + schema + examples — is cached, so repeat
+translations only re-pay for the newly pasted source; the second call is a
+separate, smaller request.
 
 ---
 
