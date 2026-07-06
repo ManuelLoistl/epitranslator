@@ -6,3 +6,7 @@ venv/
 .env
 *.egg-info/
 .pytest_cache/
+
+# Planning artifacts — kept local, never committed
+plans/
+*.plan.md
