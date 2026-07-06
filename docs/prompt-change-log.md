@@ -14,11 +14,13 @@ translated `model.py` must conform to) + the worked examples. See
 
 ---
 
-## 2026-07-01 — Fix: infection edges wrongly mapped to `frequency_dependent=False`
+## 2026-07-01
 
-### Summary
+### Fix: infection edges wrongly mapped to `frequency_dependent=False`
 
-A batch test translating 14 published disease models surfaced one genuine
+#### Summary
+
+Testing across a range of published disease models surfaced one genuine
 **correctness bug** (as opposed to a documented simplification): a plain SIR
 model whose infection term is `β·S·I` was translated with the S→I transmission
 edge set to `frequency_dependent=False`. In the target schema that flag means
@@ -58,7 +60,7 @@ Numerical impact (β=0.1, γ=0.05, I₀=0.01):
 | Correct, **I₀=0**   | 0.000 | —    | 0.000 (no epidemic — correct) |
 | Buggy, **I₀=0**     | 0.500 | t≈14 | 1.000 (epidemic with zero infectives — impossible) |
 
-### Changes to `prompt_assets/system_prompt.md`
+#### Changes to `prompt_assets/system_prompt.md`
 
 **1. Mapping guidance (the direct cause).**
 
@@ -89,7 +91,7 @@ for the `rate * source` form and stated that infection edges must set
 `False` infection edge silently drops the `I` term (ranking it alongside the
 existing rate-vs-period `value_type` inversion warning as an easy silent error).
 
-### Change to `prompt_assets/target_schema.py`
+#### Change to `prompt_assets/target_schema.py`
 
 **4. `add_transmission_edge` docstring** — the reference comment previously read
 *"`rate * source` (mass action) or, with frequency_dependent=True, …"*. The
@@ -98,7 +100,7 @@ existing rate-vs-period `value_type` inversion warning as an easy silent error).
 progression/recovery)" and `True` as "the infection form", and added an explicit
 note that a normalized `β·S·I` with N=1 is the `frequency_dependent=True` case.
 
-### Verification
+#### Verification
 
 Re-ran the failing case (epicookbook SIR) plus two regression cases after the
 edits:
@@ -116,7 +118,7 @@ edits:
 
 All four re-runs compile. Verified 2026-07-01.
 
-### Notes
+#### Notes
 
 - The bug was purely in the *guidance*, not the framework — the schema itself is
   fine; it just lacked a density-dependent edge and its docstring mislabeled the
@@ -126,13 +128,11 @@ All four re-runs compile. Verified 2026-07-01.
   susceptible compartment and its target is infective-flagged but
   `frequency_dependent=False` — that would catch this class at the framework
   level rather than relying on prompt wording.
-- All other 13 models in the test either translated faithfully or were simplified
+- All other models in the test either translated faithfully or were simplified
   with visible `# NOTE:` comments; this was the only silently-wrong output among
   genuinely compartmental sources.
 
----
-
-## 2026-07-01 — Output-report addendum (translation-report feature)
+### Output-report addendum (translation-report feature)
 
 **Implementation note:** `backend/prompt.py`'s `build_user_message()` was also 
 softened to remove the "Output **only** the bare translated Python code" 
@@ -143,7 +143,7 @@ message. Part of the "honest-parameter /
 dynamics-free handling" feature: a two-tier UI (an attention banner + an
 expandable panel auditing every parameter translation).
 
-### Change to `prompt_assets/system_prompt.md` ("What you output" section)
+#### Change to `prompt_assets/system_prompt.md` ("What you output" section)
 
 Before:
 ```
@@ -182,7 +182,7 @@ Two prompt-asset changes, following the project's prompt-stability rule of
    feature. (Chosen over leaving it untouched because a direct contradiction
    risks the model dropping the report.)
 
-### Verification (2026-07-01)
+#### Verification (2026-07-01)
 
 Live end-to-end confirmed the model emits a valid report and the code stays clean
 (no sentinel leak, code compiles) on three sources:
@@ -195,7 +195,7 @@ Live end-to-end confirmed the model emits a valid report and the code stays clea
 Graceful degradation confirmed: with `output_report.md` removed, no report event is
 emitted and the app shows code only, without error.
 
-### Follow-up hardening (2026-07-01)
+#### Follow-up hardening (2026-07-01)
 
 Live browser testing showed the model sometimes ignored the exact format and wrote
 the report as a **paraphrased comment block** (`# ===TRANSLATION REPORT===` with
@@ -214,11 +214,9 @@ code pane. Hardening, so the report can never appear as code:
 - **UI:** the report moved to a full-width drawer below both panes (code pane holds
   only code).
 
----
+### Re-architecture: translation report via a separate structured call
 
-## 2026-07-01 — Re-architecture: translation report via a separate structured call
-
-**Status: implemented 2026-07-01.** Replaces the in-stream "sentinel + JSON after
+Replaces the in-stream "sentinel + JSON after
 the code" approach (the two entries above) — that proved unreliable: the model
 would sometimes paraphrase the sentinel and write the report as `#` comment prose,
 which then leaked into the code pane (observed twice in the browser). Prompt
@@ -256,16 +254,14 @@ tests — obsolete now that code and report come from separate calls.
 produce a valid report with **zero report text in the code pane** (structurally
 impossible), code compiles; `mpox_run` correctly flags `high`/`no_dynamics`.
 
----
+### New appended file: multi-file input guidance
 
-## 2026-07-01 — New appended file: multi-file input guidance
-
-**Status: implemented 2026-07-01.** Part of the multi-file input feature.
+Part of the multi-file input feature.
 
 **No edits to existing prompt files.** Following the project's prompt-stability
 rule, this is a **new appended prompt-asset file only**.
 
-### New file `prompt_assets/multi_file_guidance.md`
+#### New file `prompt_assets/multi_file_guidance.md`
 
 Appended to the system prompt as its final section by `build_system_prompt()`
 (after the worked examples). It tells the model, **when the source is supplied
@@ -279,9 +275,9 @@ as several files** (each under a `=== file: ... ===` header), to:
   not transcribe its cell values (the schema uses built-in Prem 2021 matrices,
   with `set_contact_override` for specific deviations).
 
-**Purpose / rationale:** the 14-model test found that parameters often live in
-separate files, so a single paste has structure but no numbers and the tool
-fills plausible defaults (test-results observation #3). Multi-file input lets the
+**Purpose / rationale:** testing across different disease models found that
+parameters often live in separate files, so a single paste has structure but no
+numbers and the tool fills plausible defaults. Multi-file input lets the
 modeler supply those files; this guidance steers the model to use the supplied
 numbers and to keep the contact-matrix expectation honest. Phrased conditionally
 ("when several files are provided…") so it is a harmless no-op for single-file
