@@ -132,9 +132,7 @@ All four re-runs compile. Verified 2026-07-01.
 
 ---
 
-## 2026-07-01 — Planned: output-report addendum (translation-report feature)
-
-**Status: implemented 2026-07-01.**
+## 2026-07-01 — Output-report addendum (translation-report feature)
 
 **Implementation note:** `backend/prompt.py`'s `build_user_message()` was also 
 softened to remove the "Output **only** the bare translated Python code" 
