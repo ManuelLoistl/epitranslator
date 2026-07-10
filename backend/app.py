@@ -184,17 +184,40 @@ async def translate(payload: dict, request: Request) -> StreamingResponse:
             )
             return
         try:
-            # 1. Stream the bare model.py to the code pane (code only).
+            # 1. First attempt streams the bare model.py live to the code pane.
             code_parts = []
             for chunk in translator.stream_translation(
                 source_code, source_language, category
             ):
                 code_parts.append(chunk)
                 yield _sse({"text": chunk})
-            # 2. Separate structured call for the report; emit it if we got one.
+            code = "".join(code_parts)
+            # 2. A stream cut mid-response leaves truncated, non-building code. If it
+            #    doesn't parse, regenerate (buffered) up to the attempt limit and
+            #    swap the pane with the first complete result.
+            attempt = 1
+            while (
+                not translator.is_complete_code(code)
+                and attempt < translator.MAX_TRANSLATION_ATTEMPTS
+            ):
+                attempt += 1
+                yield _sse({"retrying": attempt})
+                code = "".join(
+                    translator.stream_translation(
+                        source_code, source_language, category
+                    )
+                )
+                if translator.is_complete_code(code):
+                    yield _sse({"replace": code})
+            if not translator.is_complete_code(code):
+                yield _sse(
+                    {"error": "The translation kept coming back incomplete — please try again in a moment."}
+                )
+                return
+            # 3. Separate structured call for the report; emit it if we got one.
             yield _sse({"status": "Writing translation report…"})
             report = translator.generate_report(
-                source_code, "".join(code_parts), source_language
+                source_code, code, source_language
             )
             if report is not None:
                 yield _sse({"report": report})

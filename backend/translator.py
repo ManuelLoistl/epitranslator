@@ -15,6 +15,7 @@ Design notes (grounded in the current Anthropic API):
 """
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import os
@@ -92,6 +93,11 @@ EFFORT = os.environ.get("TRANSLATOR_EFFORT", "high")  # low | medium | high | xh
 MAX_TOKENS = int(os.environ.get("TRANSLATOR_MAX_TOKENS", "32000"))
 # Adaptive thinking helps translation fidelity; disable with THINKING=off.
 THINKING_ENABLED = os.environ.get("TRANSLATOR_THINKING", "adaptive").lower() != "off"
+
+# A stream cut mid-response leaves a truncated, non-building model.py. Because the
+# cut is random, regenerating almost always yields a complete file, so we retry.
+# Total attempts including the first; 1 disables retrying.
+MAX_TRANSLATION_ATTEMPTS = int(os.environ.get("TRANSLATOR_MAX_ATTEMPTS", "3"))
 
 # The translation report is a separate, cheaper structured call.
 REPORT_MODEL = os.environ.get("TRANSLATOR_REPORT_MODEL", MODEL)
@@ -230,6 +236,25 @@ def stream_translation(
     yield from _strip_code_fences(_raw())
 
 
+def is_complete_code(code: str) -> bool:
+    """True if `code` is non-empty and parses as Python.
+
+    The failure we retry on is a stream cut mid-response: the model.py arrives
+    truncated (e.g. an unclosed ``(``) and can't build. ``ast.parse`` catches
+    exactly that without importing the target framework (which the app doesn't
+    depend on). It is a syntactic check only — a syntactically valid but
+    semantically wrong translation still passes.
+    """
+    code = code.strip()
+    if not code:
+        return False
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        return False
+    return True
+
+
 def generate_report(
     source_code: str,
     model_code: str,
@@ -279,5 +304,6 @@ def config_summary() -> dict:
         "effort": EFFORT,
         "max_tokens": MAX_TOKENS,
         "thinking": "adaptive" if THINKING_ENABLED else "off",
+        "max_attempts": MAX_TRANSLATION_ATTEMPTS,
         "api_key_present": api_key_present(),
     }

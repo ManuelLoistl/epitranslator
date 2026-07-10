@@ -655,6 +655,19 @@ async function translate() {
       if (evt.error) { setStatus(evt.error, true); errored = true; setPhaseError(evt.error); return true; }
       if (evt.done) { hasResult = true; renderOutput(); setStatus(`Done · ${bytes.toLocaleString()} chars`); return true; }
       if (evt.status) { setStatus(evt.status); }
+      if (evt.retrying) {
+        // Prior attempt came back truncated; server is regenerating. Clear the
+        // partial output so the pane doesn't show broken code during the retry.
+        outputRaw = ""; $("output").textContent = ""; bytes = 0;
+        setStatus(`Output was incomplete — regenerating (attempt ${evt.retrying})…`);
+      }
+      if (evt.replace !== undefined) {
+        // A retry produced complete code; replace the (cleared) pane with it.
+        $("placeholder").hidden = true;
+        outputRaw = evt.replace;
+        $("output").textContent = evt.replace;
+        bytes = evt.replace.length;
+      }
       if (evt.report) { renderReport(evt.report); }
       if (evt.report_error) { showReportUnavailable(); }
       if (evt.text) {
