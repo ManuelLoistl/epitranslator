@@ -80,13 +80,15 @@ app works end-to-end:
 | Addition | Where | What it does |
 |---|---|---|
 | Multi-file guidance | [`prompt_assets/multi_file_guidance.md`](prompt_assets/multi_file_guidance.md) | Appended to the instructions when more than one file is submitted, telling the model how to reconcile several sources into a single `model.py`. |
+| Structure guidance | [`prompt_assets/structure_guidance.md`](prompt_assets/structure_guidance.md) | Appended to the instructions; tells the model to express structure the source actually has — age/demographic groups, Erlang sub-stages, vaccination strata, stochastic dynamics, metapopulation — and to invent nothing the source lacks. |
 | File headers | assembly code | When several files are submitted, each is wrapped in a `=== file: <name> ===` header so the model can tell them apart. A single pasted source is passed through unchanged. |
 | Disease-category hint | assembly code | When a category is picked, one line (`Disease category hint: …`) is added to the message — used only to disambiguate, never to override what the source says. |
 | Report instructions | [`prompt_assets/output_report.md`](prompt_assets/output_report.md) | Drives a **separate, structured** model call that produces the translation report (origin / severity / category and the fidelity notes). |
 
-So the app makes **two** model calls: one streams the bare `model.py`, and a
-second, structured call, driven by `output_report.md`, produces the
-translation report, so the report can never leak into the code. The first
+So the app makes **two kinds** of model call: one streams the bare `model.py` —
+regenerated if a draft comes back truncated — and a second, structured call,
+driven by `output_report.md`, produces the translation report, so the report can
+never leak into the code. The first
 call's shared prefix — instructions + schema + examples — is cached, so repeat
 translations only re-pay for the newly pasted source; the second call is a
 separate, smaller request.

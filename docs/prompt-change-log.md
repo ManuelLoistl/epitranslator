@@ -137,3 +137,69 @@ All four re-runs compile. Verified 2026-07-01.
 - All other models in the test either translated faithfully or were simplified
   with visible `# NOTE:` comments; this was the only silently-wrong output among
   genuinely compartmental sources.
+
+---
+
+## 2026-07-11
+
+### Add: two worked examples — age structure, and stochastic + Erlang + vaccination strata
+
+#### Summary
+
+Added two new before/after pairs to `prompt_assets/examples/`:
+
+- `age_structured_seir_from_r/` — an age-stratified deterministic SEIR whose force
+  of infection is contact-matrix mediated, translated with
+  `add_demographic_group(age_range=...)` (opting into the built-in Prem 2021
+  matrices) and a manually-applied age-structured FOI (`skip_edges` + `_apply_flow`
+  + `self.contact_matrix`).
+- `stochastic_erlang_vaccine_from_python/` — a fixed-step stochastic SEIR with a
+  2-stage Erlang latent period and a leaky-vaccine stratum, translated with
+  `STOCHASTIC = True` (per-step Poisson event counts), explicit `E1`/`E2`
+  sub-compartments, and an `S`/`Sv` stratum split with a reduced `beta_v` edge.
+
+No existing example, instruction, or schema file was modified — this is purely
+additive. (The examples are used together with a companion **app-owned** guidance
+file, `prompt_assets/structure_guidance.md`, and its wiring in
+[../backend/prompt.py](../backend/prompt.py); per this log's scope that app-owned
+file is not recorded here.)
+
+#### Why
+
+The prior prompt reliably produced a faithful *flat* compartmental core but
+**dropped structure the source actually had**: on models with age stratification
+(kieshaprem, cmmid-covid-uk) or vaccination strata (mpox) the baseline translation
+collapsed them to a single unstratified population. That is a faithfulness loss —
+the schema *can* represent these (demographic groups, parallel strata, explicit
+sub-compartments, `STOCHASTIC`), but the prompt gave no worked pattern for them, so
+the model defaulted to the flat core it had examples for.
+
+These two examples supply the missing patterns. An evaluation on a 4-model subset
+(flat-SIR canary, age SEIR, stochastic-Erlang ebola, age+strata mpox), scored via
+the framework-built schema and sealed clean-context faithfulness judges, found:
+
+- With the examples present, age structure and vaccination strata are recovered
+  and judged **faithful** (correct strata, dose flows, per-stratum susceptibility;
+  age wired into a real contact-matrix FOI, not cosmetic groups).
+- The flat-SIR **canary stayed minimal** (S/I/R, no groups, no strata) — the
+  examples did **not** cause over-enrichment or invented structure.
+- The gain **generalized to a held-out model** never used to build the examples
+  (cmmid-covid-uk: age groups recovered where the baseline had dropped them).
+
+The conditional framing ("express this ONLY when the source contains it; adding
+structure the source lacks is a translation error") lives in the companion
+guidance file and is reinforced by each example's docstring.
+
+#### Verification
+
+Both `target.py` files build their schema and run through the framework (instantiate
++ integrate) with a valid config: population is conserved, no negative compartments,
+and an epidemic occurs. Verified 2026-07-11.
+
+#### Notes
+
+- These examples were **authored by EpiTranslator** (the age one is based on the
+  framework's own `covid_jax_model`); they are candidates to adopt upstream so the
+  canonical example set carries the same patterns rather than forking here.
+- Erlang recovery remained the weakest area in evaluation even with the stochastic
+  example present — a known hard case, flagged for future attention, not a blocker.

@@ -27,6 +27,7 @@ _SYSTEM_PROMPT_FILE = _ASSETS / "system_prompt.md"
 _SCHEMA_FILE = _ASSETS / "target_schema.py"
 _OUTPUT_REPORT_FILE = _ASSETS / "output_report.md"
 _MULTI_FILE_FILE = _ASSETS / "multi_file_guidance.md"
+_STRUCTURE_GUIDANCE_FILE = _ASSETS / "structure_guidance.md"
 _EXAMPLES_DIR = _ASSETS / "examples"
 
 # Map common source-model file extensions to a human-readable language name,
@@ -120,6 +121,10 @@ def build_system_prompt() -> str:
     multi_file = _strip_html_comments(_read(_MULTI_FILE_FILE))
     if multi_file:
         parts.append(multi_file)
+
+    structure_guidance = _strip_html_comments(_read(_STRUCTURE_GUIDANCE_FILE))
+    if structure_guidance:
+        parts.append(structure_guidance)
 
     return "\n\n".join(p for p in parts if p).strip()
 
