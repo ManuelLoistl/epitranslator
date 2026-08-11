@@ -34,9 +34,11 @@ express what is there, invent nothing that isn't.
   a deterministic ODE.
 
 - **Spatial / metapopulation structure.** If the source has multiple patches or a
-  travel/mobility model, declare it with `set_travel_volume(...)` and build the
-  travel matrix accordingly. When the source is a single well-mixed population,
-  keep `self.travel_matrix = np.eye(R)` and do NOT invent patches.
+  travel/mobility model, declare its parameters with `add_disease_parameter`
+  (convention: `travel_sigma`, `ValueType.PERCENTAGE`) and override
+  `build_travel_matrix(self, admin_zones)` to return the `(R, R)` matrix. When the
+  source is a single well-mixed population, write no mobility code at all — the
+  framework supplies an identity matrix — and do NOT invent patches.
 
 When a source feature genuinely cannot be represented (an economic layer, a
 fitting/likelihood step, arbitrary continuous time-dependent parameter functions),

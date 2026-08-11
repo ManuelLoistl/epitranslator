@@ -34,9 +34,10 @@ Subclass `Model` and implement:
    matrix). `super().__init__` populates `self.population_matrix`,
    `self.compartment_list`, the transmission-rate attributes (`self.beta`,
    `self.gamma`, …), `self.interventions`, `self.contact_matrix`, dates, etc.
-3. **`prepare_initial_state(self)`** — set `self.travel_matrix`
-   (`np.eye(R)` when there is no travel model) and return
-   `(state_array, list(self.compartment_list))`.
+3. **`prepare_initial_state(self)`** — return the state array (normally
+   `self.population_matrix`, after any demographic expansion). Return the array
+   itself, not a tuple. Do **not** set `self.travel_matrix` here: the framework
+   builds it before this method runs.
 4. **`equation(self, y, t, p)`** — the right-hand side, using `jax.numpy`.
    Return `jnp.stack([derivs[c] for c in self.compartment_list])` in
    compartment-list order (including any `_total` rows).
@@ -56,7 +57,8 @@ Subclass `Model` and implement:
    `frequency_dependent=True`** — see the mapping guidance below.
 4. `schema.add_intervention(...)` — optional; `target_rates=[...]` lists the
    edge variable names it reduces.
-5. `schema.set_travel_volume(...)`, demographics / contact matrix,
+5. mobility parameters (declared as ordinary `add_disease_parameter` fields —
+   see the mobility rule below), demographics / contact matrix,
    `add_admin_zone_field`, `add_disease_parameter` — optional, as needed.
 
 ## `equation()` patterns
@@ -75,7 +77,7 @@ def equation(self, y, t, p):
     prop_infective = I.sum() / (N_total.sum() + 1e-10)
 
     # Optional: apply schema interventions to rates + travel matrix (no-op if none)
-    rates, self.travel_matrix = self._apply_interventions(
+    rates, travel_matrix = self._apply_interventions(
         t, {"beta": params["beta"]}, prop_infective
     )
     rates["gamma"] = params["gamma"]
@@ -121,8 +123,17 @@ and skips edges whose compartments aren't active.
 - **Stochastic / fixed-step models** must set `STOCHASTIC = True` (or
   `SOLVER = "euler"`) as a class attribute, and `equation()` must return the
   **per-step delta** (event counts), not the instantaneous rate.
-- **Set `self.travel_matrix`** (use `np.eye(R)` when no travel) before the
-  first `equation()` call — `_apply_interventions()` reads it.
+- **Mobility is model-owned, the travel matrix is framework-owned.** The
+  framework calls `build_travel_matrix()` and stores the result on
+  `self.travel_matrix` *before* `prepare_initial_state()` — identity when the
+  model declares no travel. Never assign `self.travel_matrix` yourself. If the
+  source has a travel/mobility model, declare its parameters with
+  `add_disease_parameter` (convention: `travel_sigma`, `ValueType.PERCENTAGE`)
+  and override `build_travel_matrix(self, admin_zones)` to return the `(R, R)`
+  matrix — rows summing to 1, diagonal = the stay-home fraction `1 - sigma`,
+  row/column order matching `admin_zones`. Never name a mobility parameter
+  plain `sigma`: non-edge names route to the disease config, and a collision
+  with an edge `variable_name` misroutes during uncertainty runs.
 - **Force-of-infection coupling** (spatial travel matrix, age-stratified
   contact matrix, multi-rate FOI) is the case where you `skip_edges={...}` and
   apply the flow manually with `_apply_flow()`.

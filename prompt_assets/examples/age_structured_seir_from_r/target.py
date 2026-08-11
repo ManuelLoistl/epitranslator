@@ -80,16 +80,13 @@ class AgeStructuredSeirModel(Model):
 
     def __init__(self, config):
         super().__init__(config)
+        # The config's compartment list wins (a variant may declare a subset).
         self.compartment_list = config["compartment_list"]
-        self.travel_matrix = np.fill_diagonal(
-            np.array(config["travel_matrix"]), 1.0, inplace=False
-        )
-        self.sigma = config["travel_volume"]["leaving"]
 
     def prepare_initial_state(self):
         # Expand (K, R) -> (K, A, R) using the declared age groups.
         self._prepare_demographic_state()
-        return self.population_matrix, self.compartment_list
+        return self.population_matrix
 
     def equation(self, y, t, p):
         C = self.COMPARTMENTS

@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-import numpy as np
 import logging
 from compartment.model import Model, ValueType
 
@@ -59,10 +58,8 @@ class ExampleSirJaxModel(Model):
         super().__init__(config)
 
     def prepare_initial_state(self):
-        R = self.population_matrix.shape[1]
-        # No inter-region travel: identity keeps each region self-contained.
-        self.travel_matrix = np.eye(R)
-        return self.population_matrix, list(self.compartment_list)
+        # No inter-region travel — the framework supplies the identity matrix.
+        return self.population_matrix
 
     def equation(self, y, t, p):
         C = self.COMPARTMENTS
@@ -75,8 +72,9 @@ class ExampleSirJaxModel(Model):
         N_total = sum(states[c] for c in non_total)
         prop_infective = I.sum() / (N_total.sum() + 1e-10)
 
-        # No-op when no interventions are configured.
-        rates, self.travel_matrix = self._apply_interventions(
+        # No-op when no interventions are configured. The travel matrix is
+        # unused here (well-mixed model); the framework keeps self.travel_matrix.
+        rates, _ = self._apply_interventions(
             t, {"beta": params["beta"]}, prop_infective
         )
         rates["gamma"] = params["gamma"]

@@ -98,10 +98,10 @@ class ParameterSchemaBuilder:
     ) -> None: ...
 
     # --- Spatial travel (optional) ---
-    def set_travel_volume(self, leaving_default: float = 0.2,
-                          leaving_min: float = 0.0, leaving_max: float = 1.0,
-                          returning_default: float | None = None,
-                          returning_required: bool = False, **kwargs: Any) -> None: ...
+    # There is no travel-specific builder method. A model that travels declares
+    # its mobility parameters as ordinary disease parameters (convention:
+    # `travel_sigma`, ValueType.PERCENTAGE) and overrides
+    # Model.build_travel_matrix() — see the Model class below.
 
     # --- Demographics / contact matrix (optional) ---
     # Declare an inclusive age_range on every group to opt into country-aware
@@ -138,7 +138,7 @@ class Model:
 
     USUALLY implement:
         def __init__(self, config)               # call super().__init__(config) first
-        def prepare_initial_state(self)          # set self.travel_matrix; return (state, compartment_list)
+        def prepare_initial_state(self)          # return the state array (NOT a tuple)
 
     Optional class attributes:
         STOCHASTIC = True                        # use fixed-step Euler; equation() returns per-step delta
@@ -179,7 +179,17 @@ class Model:
 
     def _apply_interventions(self, t, rates: dict, prop_infective) -> tuple[dict, Any]:
         """Apply declared interventions to rates and the travel matrix for time t.
-        Returns (modified_rates, travel_matrix). No-op when none configured."""
+        Returns (modified_rates, travel_matrix). No-op when none configured.
+        Also stores the modified matrix on self.travel_matrix — take the return
+        value into a LOCAL variable, do not assign it back to self."""
+        ...
+
+    def build_travel_matrix(self, admin_zones) -> Any:
+        """Override ONLY when the model travels: return the (R, R) travel matrix.
+        Rows sum to 1; the diagonal is the stay-home fraction. The framework calls
+        this before prepare_initial_state() and stores the result on
+        self.travel_matrix (identity when not overridden). Never assign
+        self.travel_matrix yourself."""
         ...
 
     def _prepare_demographic_state(self) -> None:
