@@ -5,7 +5,7 @@
 # `Model` base class your translation subclasses, the `ParameterSchemaBuilder`
 # API you call inside define_parameters(), and the ValueType enum. The real
 # implementations live in the framework (compartment/model.py and
-# compartment/parameters.py); you only write define_parameters() + derivative().
+# compartment/parameters.py); you only write define_parameters() + equation().
 # =============================================================================
 from __future__ import annotations
 
@@ -134,14 +134,14 @@ class Model:
     MUST implement:
         @classmethod
         def define_parameters(cls, schema: ParameterSchemaBuilder) -> None
-        def derivative(self, y, t, p)            # ODE / per-step delta
+        def equation(self, y, t, p)              # ODE / per-step delta
 
     USUALLY implement:
         def __init__(self, config)               # call super().__init__(config) first
         def prepare_initial_state(self)          # set self.travel_matrix; return (state, compartment_list)
 
     Optional class attributes:
-        STOCHASTIC = True                        # use fixed-step Euler; derivative returns per-step delta
+        STOCHASTIC = True                        # use fixed-step Euler; equation() returns per-step delta
         SOLVER = "euler" | "odeint"              # explicit solver override (else odeint)
         COMPARTMENT_DELTA_GROUPING = {...}        # group raw compartments for output (e.g. dengue serotypes)
 
@@ -160,12 +160,12 @@ class Model:
     # self.contact_matrix        (A, A) demographic contact matrix or None
     # self.start_date, self.start_date_ordinal, self.n_timesteps, self.admin_units
 
-    # --- Helpers available inside derivative() ---
+    # --- Helpers available inside equation() ---
     def _unpack_params(self, p) -> dict:
         """Tuple of params (schema edge order) -> {variable_name: value}."""
         ...
 
-    def _compute_derivatives(self, states: dict, rates: dict,
+    def _compute_equations(self, states: dict, rates: dict,
                              skip_edges: set[str] | None = None) -> dict:
         """Apply all transmission edges (mass-action / frequency-dependent),
         auto-accumulate into <target>_total, skip inactive/skipped edges.

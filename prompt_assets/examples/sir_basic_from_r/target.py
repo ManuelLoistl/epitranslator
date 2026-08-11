@@ -64,7 +64,7 @@ class ExampleSirJaxModel(Model):
         self.travel_matrix = np.eye(R)
         return self.population_matrix, list(self.compartment_list)
 
-    def derivative(self, y, t, p):
+    def equation(self, y, t, p):
         C = self.COMPARTMENTS
         params = self._unpack_params(p)
 
@@ -83,5 +83,5 @@ class ExampleSirJaxModel(Model):
 
         # Framework applies the edges (frequency-dependent S->I, mass-action
         # I->R) and accumulates cumulative I_total / R_total automatically.
-        derivs = self._compute_derivatives(states, rates)
+        derivs = self._compute_equations(states, rates)
         return jnp.stack([derivs[c] for c in self.compartment_list])

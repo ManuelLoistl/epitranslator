@@ -10,7 +10,7 @@ compartments, transmission edges, interventions, and parameters once in
 (the compartment list, the `disease_type`, the Pydantic config class, the
 example config, the registry entry, automatic cumulative `_total`
 compartments, and the rate attributes on `self`). The only code you write by
-hand is the schema declaration and the ODE/stochastic `derivative()`.
+hand is the schema declaration and the ODE/stochastic `equation()`.
 
 ## What you output
 
@@ -37,7 +37,7 @@ Subclass `Model` and implement:
 3. **`prepare_initial_state(self)`** — set `self.travel_matrix`
    (`np.eye(R)` when there is no travel model) and return
    `(state_array, list(self.compartment_list))`.
-4. **`derivative(self, y, t, p)`** — the right-hand side, using `jax.numpy`.
+4. **`equation(self, y, t, p)`** — the right-hand side, using `jax.numpy`.
    Return `jnp.stack([derivs[c] for c in self.compartment_list])` in
    compartment-list order (including any `_total` rows).
 
@@ -59,12 +59,12 @@ Subclass `Model` and implement:
 5. `schema.set_travel_volume(...)`, demographics / contact matrix,
    `add_admin_zone_field`, `add_disease_parameter` — optional, as needed.
 
-## `derivative()` patterns
+## `equation()` patterns
 
 Lean on the framework helpers; only drop to manual flows when you must.
 
 ```python
-def derivative(self, y, t, p):
+def equation(self, y, t, p):
     C = self.COMPARTMENTS
     params = self._unpack_params(p)                 # {"beta": ..., "gamma": ...}
     states = {c: y[i] for i, c in enumerate(self.compartment_list)}
@@ -81,16 +81,16 @@ def derivative(self, y, t, p):
     rates["gamma"] = params["gamma"]
 
     # Framework computes standard/frequency-dependent edges and accumulates _total
-    derivs = self._compute_derivatives(states, rates)
+    derivs = self._compute_equations(states, rates)
 
     # Manual flow (only for spatial coupling, multi-rate FOI, births, etc.):
-    #   derivs = self._compute_derivatives(states, rates, skip_edges={"beta"})
+    #   derivs = self._compute_equations(states, rates, skip_edges={"beta"})
     #   self._apply_flow(derivs, "S", "I", S * lambda_force)
 
     return jnp.stack([derivs[c] for c in self.compartment_list])
 ```
 
-`_compute_derivatives()` already: reads `frequency_dependent`/`infective`
+`_compute_equations()` already: reads `frequency_dependent`/`infective`
 flags to pick the FOI formula; auto-accumulates flow into `<target>_total`;
 and skips edges whose compartments aren't active.
 
@@ -116,13 +116,13 @@ and skips edges whose compartments aren't active.
 - **Do not declare `_total` compartments by hand** for normal edge targets —
   the framework auto-generates them. (Declare them by hand only for manual
   flows whose target isn't an edge target.)
-- **`derivative()` must stack in `self.compartment_list` order**, never a
+- **`equation()` must stack in `self.compartment_list` order**, never a
   hardcoded order.
 - **Stochastic / fixed-step models** must set `STOCHASTIC = True` (or
-  `SOLVER = "euler"`) as a class attribute, and `derivative()` must return the
+  `SOLVER = "euler"`) as a class attribute, and `equation()` must return the
   **per-step delta** (event counts), not the instantaneous rate.
 - **Set `self.travel_matrix`** (use `np.eye(R)` when no travel) before the
-  first `derivative()` call — `_apply_interventions()` reads it.
+  first `equation()` call — `_apply_interventions()` reads it.
 - **Force-of-infection coupling** (spatial travel matrix, age-stratified
   contact matrix, multi-rate FOI) is the case where you `skip_edges={...}` and
   apply the flow manually with `_apply_flow()`.

@@ -14,7 +14,7 @@ class StochasticErlangVaccineModel(Model):
 
     Faithful translation of three source features the framework CAN express:
 
-    * Stochastic dynamics -> ``STOCHASTIC = True``; ``derivative()`` returns the
+    * Stochastic dynamics -> ``STOCHASTIC = True``; ``equation()`` returns the
       per-step change (Poisson event counts), not instantaneous rates.
     * Non-exponential latent period -> the single latent stage is kept as two
       explicit sub-compartments ``E1`` and ``E2`` (Erlang k=2), each advancing at
@@ -42,7 +42,7 @@ class StochasticErlangVaccineModel(Model):
         schema.add_compartment("I", "Infected", "Infectious population", infective=True)
         schema.add_compartment("R", "Recovered", "Recovered and immune")
 
-        # ---- Edges (register parameters; the stochastic derivative applies them by hand) ----
+        # ---- Edges (register parameters; the stochastic equation() applies them by hand) ----
         schema.add_transmission_edge(
             source="susceptible", target="exposed (stage 1)", variable_name="beta",
             frequency_dependent=True,
@@ -106,7 +106,7 @@ class StochasticErlangVaccineModel(Model):
         self.travel_matrix = np.eye(self.population_matrix.shape[1])
         return (self.population_matrix, list(self.compartment_list))
 
-    def derivative(self, y, t, p):
+    def equation(self, y, t, p):
         """Tau-leaping stochastic step: returns per-timestep event-count deltas."""
         params = self._unpack_params(p)
         cl = self.compartment_list

@@ -91,7 +91,7 @@ class AgeStructuredSeirModel(Model):
         self._prepare_demographic_state()
         return self.population_matrix, self.compartment_list
 
-    def derivative(self, y, t, p):
+    def equation(self, y, t, p):
         C = self.COMPARTMENTS
         params = self._unpack_params(p)
 
@@ -112,7 +112,7 @@ class AgeStructuredSeirModel(Model):
                 rates[name] = value
 
         # Standard edges (E->I, I->R); skip the infection edge (applied manually).
-        derivs = self._compute_derivatives(states, rates, skip_edges={"beta"})
+        derivs = self._compute_equations(states, rates, skip_edges={"beta"})
 
         # Age-structured force of infection: spatial mixing then the contact matrix.
         BETA = ((rates["beta"] * travel_matrix) @ I_frac.T).T

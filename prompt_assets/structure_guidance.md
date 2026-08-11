@@ -11,7 +11,7 @@ express what is there, invent nothing that isn't.
   `schema.add_demographic_group(id, label, default_weight=..., age_range=(lo, hi))`.
   `age_range` opts into the built-in Prem 2021 contact matrices — do NOT transcribe
   the source's contact cell values. Compute the age-structured force of infection
-  manually: `_compute_derivatives(..., skip_edges={"beta"})`, then `_apply_flow`
+  manually: `_compute_equations(..., skip_edges={"beta"})`, then `_apply_flow`
   using `self.contact_matrix`.
 
 - **Non-exponential (Erlang / boxcar) delays.** If the source splits a stage
@@ -29,7 +29,7 @@ express what is there, invent nothing that isn't.
 
 - **Stochastic dynamics.** If the source advances with random draws (tau-leaping,
   Binomial / Poisson / multinomial event counts, fixed-step stochastic updates),
-  set `STOCHASTIC = True` and have `derivative()` return the per-step change (event
+  set `STOCHASTIC = True` and have `equation()` return the per-step change (event
   counts), not instantaneous rates. Do NOT silently convert a stochastic model to
   a deterministic ODE.
 
