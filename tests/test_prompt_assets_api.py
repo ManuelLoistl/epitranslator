@@ -91,11 +91,18 @@ def test_examples_never_assign_the_travel_matrix():
 def test_system_prompt_documents_set_model_metadata():
     prompt = build_system_prompt()
     assert "set_model_metadata" in prompt
+    # A sentence from metadata_guidance.md's no-invention rule, distinctive
+    # enough that it can't come from the target_schema.py stub (which only
+    # has the bare method signature) -- so this only passes if the
+    # metadata_guidance append block in build_system_prompt() actually ran.
+    assert "Omit a field rather than guess at it" in prompt
 
 
 def test_metadata_guidance_forbids_invention():
     from backend.prompt import assets_status
 
-    text = (ASSETS / "metadata_guidance.md").read_text(encoding="utf-8")
-    assert "do not invent" in text.lower()
+    # Checked against the assembled prompt, not the raw file, so a dropped
+    # metadata_guidance append block fails this test too.
+    prompt = build_system_prompt()
+    assert "Do not invent metadata" in prompt
     assert assets_status()["metadata_guidance_present"] is True
