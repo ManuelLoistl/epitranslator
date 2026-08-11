@@ -31,7 +31,9 @@ At **[epitranslator.com](https://epitranslator.com)**:
    dropped structure, a dynamics-free source) and an audit of every compartment,
    parameter, and intervention, each tagged with its provenance:
    `source` / `converted` / `derived` / `guessed`.
-5. **Copy or download** the `model.py`, make final adjustments and take it into the Pandemic Simulator.
+5. Review the generated **`model.md`** — the documentation file that sits next to
+   `model.py` in the model's folder — and copy or download it alongside the code.
+6. **Copy or download** the `model.py`, make final adjustments and take it into the Pandemic Simulator.
 
 The **Schema reference** button (top right) shows the exact target schema.
 
@@ -84,14 +86,17 @@ app works end-to-end:
 | File headers | assembly code | When several files are submitted, each is wrapped in a `=== file: <name> ===` header so the model can tell them apart. A single pasted source is passed through unchanged. |
 | Disease-category hint | assembly code | When a category is picked, one line (`Disease category hint: …`) is added to the message — used only to disambiguate, never to override what the source says. |
 | Report instructions | [`prompt_assets/output_report.md`](prompt_assets/output_report.md) | Drives a **separate, structured** model call that produces the translation report (origin / severity / category and the fidelity notes). |
+| Metadata guidance | [`prompt_assets/metadata_guidance.md`](prompt_assets/metadata_guidance.md) | Appended to the instructions; tells the model when to call `set_model_metadata(...)` with provenance the source actually carries, and never to invent it. |
+| `model.md` instructions | [`prompt_assets/model_doc.md`](prompt_assets/model_doc.md) | Drives a third model call that writes the `model.md` documentation file the framework reads into the model artifact. |
 
-So the app makes **two kinds** of model call: one streams the bare `model.py` —
-regenerated if a draft comes back truncated — and a second, structured call,
-driven by `output_report.md`, produces the translation report, so the report can
-never leak into the code. The first
+So the app makes **three** model calls: one streams the bare `model.py` —
+regenerated if a draft comes back truncated — a second, structured call driven by
+`output_report.md` produces the translation report, so the report can never leak
+into the code, and a third produces the `model.md` documentation file (a failure
+there is silent — the translation still stands). The first
 call's shared prefix — instructions + schema + examples — is cached, so repeat
-translations only re-pay for the newly pasted source; the second call is a
-separate, smaller request.
+translations only re-pay for the newly pasted source; the second and third calls
+are separate, smaller requests.
 
 ---
 
