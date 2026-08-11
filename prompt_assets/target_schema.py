@@ -51,6 +51,22 @@ class ParameterSchemaBuilder:
     # --- Identity (required, exactly once) ---
     def set_model_info(self, disease_type: str, label: str, description: str) -> None: ...
 
+    # Editorial metadata (optional, artifact-only — no effect on the simulation).
+    # Every field is optional; authors is a list of {"name", "email", "affiliation"}.
+    def set_model_metadata(self, authors: list[dict] | None = None,
+                           license: str | None = None,
+                           citations: list[str] | None = None,
+                           model_type: str | None = None,
+                           diseases: list[str] | None = None,
+                           transmission_routes: list[str] | None = None,
+                           questions_answered: list[str] | None = None,
+                           key_assumptions: list[str] | None = None,
+                           applicability: str | None = None,
+                           not_for: str | None = None,
+                           constraints: str | None = None,
+                           biases: str | None = None,
+                           validation: str | None = None) -> None: ...
+
     # --- Compartments ---
     # `id` is the short key used in the state array (e.g. "S"). Set infective=True
     # on every compartment that contributes to the force of infection.

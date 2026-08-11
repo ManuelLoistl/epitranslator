@@ -28,6 +28,7 @@ _SCHEMA_FILE = _ASSETS / "target_schema.py"
 _OUTPUT_REPORT_FILE = _ASSETS / "output_report.md"
 _MULTI_FILE_FILE = _ASSETS / "multi_file_guidance.md"
 _STRUCTURE_GUIDANCE_FILE = _ASSETS / "structure_guidance.md"
+_METADATA_FILE = _ASSETS / "metadata_guidance.md"
 _EXAMPLES_DIR = _ASSETS / "examples"
 
 # Map common source-model file extensions to a human-readable language name,
@@ -125,6 +126,10 @@ def build_system_prompt() -> str:
     structure_guidance = _strip_html_comments(_read(_STRUCTURE_GUIDANCE_FILE))
     if structure_guidance:
         parts.append(structure_guidance)
+
+    metadata_guidance = _strip_html_comments(_read(_METADATA_FILE))
+    if metadata_guidance:
+        parts.append(metadata_guidance)
 
     return "\n\n".join(p for p in parts if p).strip()
 
@@ -227,4 +232,6 @@ def assets_status() -> dict:
         and bool(_strip_html_comments(_read(_OUTPUT_REPORT_FILE))),
         "multi_file_guidance_present": _MULTI_FILE_FILE.is_file()
         and bool(_strip_html_comments(_read(_MULTI_FILE_FILE))),
+        "metadata_guidance_present": _METADATA_FILE.is_file()
+        and bool(_strip_html_comments(_read(_METADATA_FILE))),
     }
