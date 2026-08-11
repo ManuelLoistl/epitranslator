@@ -497,7 +497,7 @@ function clearRight() {   // clear the translation output + report only (keep so
   $("output").textContent = "";
   $("gutter").textContent = "";
   resetReport();
-  modelDocRaw = ""; $("modelDocBody").textContent = ""; $("modelDoc").hidden = true;
+  resetModelDoc();
   setPhase("idle");
 }
 
@@ -508,7 +508,7 @@ function clearAll() {     // full reset — both panes, status, and saved sessio
   $("output").textContent = "";
   $("gutter").textContent = "";
   resetReport();
-  modelDocRaw = ""; $("modelDocBody").textContent = ""; $("modelDoc").hidden = true;
+  resetModelDoc();
   setStatus("");
   $("category").selectedIndex = 0;   // back to "Unspecified"
   try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ }
@@ -525,6 +525,14 @@ function resetReport() {
   $("auditBody").innerHTML = "";
   $("auditBody").classList.remove("open");
   $("auditBar").textContent = "";
+}
+
+function resetModelDoc() {
+  modelDocRaw = "";
+  $("modelDocBody").textContent = "";
+  $("modelDoc").hidden = true;
+  $("modelDoc").classList.remove("collapsed");
+  $("modelDocToggle").setAttribute("aria-expanded", "true");
 }
 
 function showReportUnavailable() {
@@ -641,6 +649,7 @@ async function translate() {
   outputRaw = "";
   $("gutter").textContent = "";
   resetReport();
+  resetModelDoc();
   setStatus("Translating…");
   setRunning(true);
   setPhase("working");
