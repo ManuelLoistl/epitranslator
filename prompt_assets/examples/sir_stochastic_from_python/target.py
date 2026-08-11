@@ -13,7 +13,7 @@ WARNING: This model is not currently supported in the pandemic simulator app,
 but is available for testing and experimentation in the codebase. 
 """
 
-class CovidSirStochasticModel(Model):
+class ExampleSirStochasticModel(Model):
     """A simple stochastic SIR compartmental model for COVID-19.
 
     Uses tau-leaping: at each timestep the number of infection and
@@ -31,7 +31,7 @@ class CovidSirStochasticModel(Model):
     def define_parameters(cls, schema):
         schema.set_model_info(
             disease_type="EXAMPLE_SIR_STOCHASTIC",
-            label="COVID-19 Stochastic SIR",
+            label="Example Stochastic SIR",
             description="A simple stochastic SIR model for COVID-19",
         )
 

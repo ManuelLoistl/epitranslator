@@ -82,15 +82,6 @@ class AgeStructuredSeirModel(Model):
         super().__init__(config)
         # The config's compartment list wins (a variant may declare a subset).
         self.compartment_list = config["compartment_list"]
-        # Fall back to the schema defaults when the config doesn't override
-        # them (self.beta / self.theta / self.gamma come back None from
-        # _load_transmission_params when transmission_dict is empty).
-        if self.beta is None:
-            self.beta = 0.05
-        if self.theta is None:
-            self.theta = 1.0 / 5.0
-        if self.gamma is None:
-            self.gamma = 1.0 / 7.0
 
     def prepare_initial_state(self):
         # Expand (K, R) -> (K, A, R) using the declared age groups.
