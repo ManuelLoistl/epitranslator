@@ -30,8 +30,9 @@ Subclass `Model` and implement:
 1. **`define_parameters(cls, schema)`** — a `@classmethod` that declares the
    model via the schema builder (full API in the TARGET SCHEMA section).
 2. **`__init__(self, config)`** — for a typical model just call
-   `super().__init__(config)`, then add anything model-specific (e.g. a travel
-   matrix). `super().__init__` populates `self.population_matrix`,
+   `super().__init__(config)`, then add anything model-specific (e.g.
+   demographics, temperature, a PRNG key for a stochastic model).
+   `super().__init__` populates `self.population_matrix`,
    `self.compartment_list`, the transmission-rate attributes (`self.beta`,
    `self.gamma`, …), `self.interventions`, `self.contact_matrix`, dates, etc.
 3. **`prepare_initial_state(self)`** — return the state array (normally

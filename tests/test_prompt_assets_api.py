@@ -61,8 +61,28 @@ def test_examples_never_assign_the_travel_matrix():
     # The framework builds self.travel_matrix via _ensure_travel_matrix() before
     # prepare_initial_state(), and _apply_interventions() stores its own result.
     # A model that travels overrides build_travel_matrix() instead.
-    for path in EXAMPLES:
-        text = path.read_text(encoding="utf-8")
-        assert "self.travel_matrix =" not in text, (
-            f"{path.parent.name}: the framework owns self.travel_matrix"
+    def _is_self_travel_matrix(node):
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr == "travel_matrix"
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "self"
         )
+
+    def _assigns_self_travel_matrix(target):
+        if isinstance(target, ast.Tuple):
+            return any(_assigns_self_travel_matrix(elt) for elt in target.elts)
+        return _is_self_travel_matrix(target)
+
+    for path in EXAMPLES:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AugAssign):
+                targets = [node.target]
+            else:
+                continue
+            assert not any(_assigns_self_travel_matrix(t) for t in targets), (
+                f"{path.parent.name}: the framework owns self.travel_matrix"
+            )
