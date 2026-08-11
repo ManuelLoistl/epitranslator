@@ -231,10 +231,10 @@ change it tracks (upstream repository, not this one).
 Upstream `3c34115` (2026-07-24) renamed both the abstract method every model
 implements and the helper that applies the schema's transmission edges; the
 old names and the `evaluate()` alias no longer exist in the framework.
-Applied throughout `system_prompt.md` (the contract bullets, the
-`equation()` patterns section, the pitfalls list), `target_schema.py` (the
-`Model` docstring, the `equation()`/`_compute_equations()` stubs), and all
-four `examples/*/target.py` files.
+Applied throughout `system_prompt.md` (the intro sentence at line 13, the
+contract bullets, the `equation()` patterns section, the pitfalls list),
+`target_schema.py` (the `Model` docstring, the `equation()`/
+`_compute_equations()` stubs), and all four `examples/*/target.py` files.
 
 Before (`system_prompt.md`):
 ```
@@ -286,9 +286,9 @@ Commit: `acc4959`.
 Upstream `d00c4b0` changed `prepare_initial_state()` to return just the state
 array (the framework already knows `compartment_list` from
 `define_parameters()`); the old `(state_array, compartment_list)` tuple
-return is no longer accepted. The framework also now builds
-`self.travel_matrix` **before** `prepare_initial_state()` runs, so a model
-must not set it there either.
+return is no longer accepted. Separately, upstream `06bb351` made the
+framework build `self.travel_matrix` **before** `prepare_initial_state()`
+runs (see #3 below), so a model must not set it there either.
 
 Before (`system_prompt.md`):
 ```
@@ -327,9 +327,13 @@ Applied to all four examples, e.g. `sir_basic_from_r/target.py`:
         # No inter-region travel — the framework supplies the identity matrix.
         return self.population_matrix
 ```
-(the now-unused `import numpy as np` was also dropped from that file; the
-other three examples' `self.travel_matrix = np.eye(...)` assignments and
-tuple returns were removed the same way.)
+(the now-unused `import numpy as np` was also dropped from that file; of the
+other three examples, two (`sir_stochastic_from_python`,
+`stochastic_erlang_vaccine_from_python`) had matching
+`self.travel_matrix = np.eye(...)` assignments removed the same way — the
+age-structured example's `self.travel_matrix` assignment used
+`np.fill_diagonal(...)` instead, shown below. All four tuple returns were
+removed the same way.)
 
 Commit: `3d7081a` (examples, guidance); `aa0af09` (follow-up: the `__init__`
 contract bullet still said *"add anything model-specific (e.g. a travel
@@ -400,11 +404,16 @@ config keys no longer exist upstream):
         self.sigma = config["travel_volume"]["leaving"]
 ```
 removed outright (the example has no travel model — the fields were unused
-scaffolding). The `equation()` bodies across the flat/age examples switched
-from `rates, self.travel_matrix = self._apply_interventions(...)` to
-`rates, travel_matrix = self._apply_interventions(...)` (or `rates, _ = ...`
-where the matrix isn't used), since assigning to `self.travel_matrix` is now
-wrong.
+scaffolding; the same edit also added a one-line comment above the
+following `self.compartment_list = config["compartment_list"]` assignment:
+`# The config's compartment list wins (a variant may declare a subset).`).
+Separately, `sir_basic_from_r/target.py`'s `equation()` body switched from
+`rates, self.travel_matrix = self._apply_interventions(...)` to
+`rates, _ = self._apply_interventions(...)` (the flat model never uses the
+matrix), and the pattern block in `system_prompt.md` switched to
+`rates, travel_matrix = self._apply_interventions(...)`, since assigning to
+`self.travel_matrix` is now wrong. (The age-structured example already used
+`rates, travel_matrix = ...` before this resync and needed no change here.)
 
 Commit: `3d7081a`.
 
@@ -483,7 +492,7 @@ scope — only the schema stub above is an upstream-owned-file change.)
 
 Commit: `976ae8b`.
 
-### Example fix: `sir_stochastic_from_python` disease_type collision with upstream's shipped model
+#### Example fix: `sir_stochastic_from_python` disease_type collision with upstream's shipped model
 
 Independent of the resync above: `sir_stochastic_from_python/target.py`
 declared `disease_type="COVID_SIR_STOCHASTIC"`, which collides with
@@ -522,8 +531,12 @@ commit `3e28faa` and run against it:
 - The flat SIR example was run end-to-end through
   `compartment.run_simulation.run_simulation` and produced a real epidemic
   curve: I first / peak / last = `10000.0 / 303627.9375 / 3831.313720703125`.
-  The other three examples were also run end-to-end and each produced a
-  genuine epidemic (population conserved, `I` rising then falling).
+  The other three examples were also run end-to-end and each produced `I`
+  rising then falling, with no `TypeError` and no dead edges. (Population
+  conservation was not separately checked; the smoke-suite run above does
+  assert, for all four examples, no NaN values and no compartment more
+  negative than `-1.0` —
+  `tests/test_smoke.py::test_no_nan_values` and `::test_no_negative_compartments`.)
 
 This was independently reproduced by a reviewer before being treated as
 verified.
