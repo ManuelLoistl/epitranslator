@@ -132,6 +132,10 @@ def test_model_doc_prompt_present():
     assert "markdown" in text
 
 
+def test_assets_status_reports_model_doc_present():
+    assert assets_status()["model_doc_present"] is True
+
+
 def test_model_doc_user_message_includes_source_and_model():
     from backend.prompt import build_model_doc_user_message
 
@@ -143,3 +147,22 @@ def test_model_doc_user_message_includes_source_and_model():
 
 def test_generate_model_doc_none_on_empty_code():
     assert translator.generate_model_doc("some source", "") is None
+
+
+# --- _strip_fence_lines (model.md fence guard) --------------------------------
+
+def test_strip_fence_lines_removes_matching_leading_and_trailing_fence():
+    text = "```markdown\n# Title\ncontent\n```"
+    assert translator._strip_fence_lines(text) == "# Title\ncontent"
+
+
+def test_strip_fence_lines_leaves_unfenced_content_untouched():
+    text = "# Title\ncontent"
+    assert translator._strip_fence_lines(text) == text
+
+
+def test_strip_fence_lines_leaves_content_that_merely_ends_with_a_fence():
+    # No leading fence was consumed, so a trailing ``` that is genuine content
+    # (e.g. the last line of a docstring) must survive.
+    text = "# Title\ncontent\n```"
+    assert translator._strip_fence_lines(text) == text

@@ -203,6 +203,7 @@ and an epidemic occurs. Verified 2026-07-11.
   canonical example set carries the same patterns rather than forking here.
 - Erlang recovery remained the weakest area in evaluation even with the stochastic
   example present — a known hard case, flagged for future attention, not a blocker.
+
 ---
 
 ## 2026-08-11
@@ -406,7 +407,7 @@ config keys no longer exist upstream):
 removed outright (the example has no travel model — the fields were unused
 scaffolding; the same edit also added a one-line comment above the
 following `self.compartment_list = config["compartment_list"]` assignment:
-`# The config's compartment list wins (a variant may declare a subset).`).
+`# Override with the compartment list from config (may be a variant subset).`).
 Separately, `sir_basic_from_r/target.py`'s `equation()` body switched from
 `rates, self.travel_matrix = self._apply_interventions(...)` to
 `rates, _ = self._apply_interventions(...)` (the flat model never uses the

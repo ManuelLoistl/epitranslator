@@ -137,6 +137,13 @@
                  padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--muted);
                  cursor: pointer; display: flex; align-items: center; gap: 8px; }
   .report-head:hover:not(:disabled) { background: transparent; color: var(--text); }
+  /* modelDoc's header is a plain div (not itself a button) so the Copy/Download
+     buttons can sit as its siblings; the collapse toggle is the nested button. */
+  div.report-head { cursor: default; }
+  div.report-head .toggle-btn { background: transparent; border: 0; border-radius: 0;
+                 padding: 0; margin: 0; font: inherit; font-weight: inherit; color: inherit;
+                 cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  div.report-head .toggle-btn:hover:not(:disabled) { background: transparent; color: var(--text); }
   .report-head .chev { display: inline-block; transition: transform 0.15s; }
   .report.collapsed .report-head .chev { transform: rotate(-90deg); }
   .report.collapsed .report-body { display: none; }
@@ -293,8 +300,10 @@
   </section>
 
   <section class="report" id="modelDoc" hidden>
-    <div class="report-head" id="modelDocToggle" role="button" tabindex="0" aria-expanded="true">
-      <span class="chev">▾</span> model.md — documentation for the model folder
+    <div class="report-head">
+      <button class="toggle-btn" id="modelDocToggle" aria-expanded="true">
+        <span class="chev">▾</span> model.md — documentation for the model folder
+      </button>
       <span style="margin-left:auto; display:flex; gap:8px;">
         <button class="secondary mini" id="modelDocDownload">Download</button>
         <button class="secondary mini" id="modelDocCopy">Copy</button>
@@ -885,14 +894,9 @@ $("reportToggle").addEventListener("click", () => {
 $("schemaDownload").addEventListener("click", () => {
   if (schemaText) downloadText("target_schema.py", schemaText, "text/x-python");
 });
-$("modelDocToggle").addEventListener("click", (e) => {
-  if (e.target.tagName === "BUTTON") return;   // let Copy/Download through
+$("modelDocToggle").addEventListener("click", () => {
   const collapsed = $("modelDoc").classList.toggle("collapsed");
   $("modelDocToggle").setAttribute("aria-expanded", String(!collapsed));
-});
-$("modelDocToggle").addEventListener("keydown", (e) => {   // div toggle, so Enter/Space need wiring
-  if (e.target.tagName === "BUTTON") return;   // let Copy/Download's own key handling through
-  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("modelDocToggle").click(); }
 });
 $("modelDocDownload").addEventListener("click", () => {
   if (modelDocRaw) downloadText("model.md", modelDocRaw, "text/markdown");

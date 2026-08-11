@@ -300,6 +300,26 @@ def generate_report(
         return None
 
 
+def _strip_fence_lines(text: str) -> str:
+    """Drop a leading and matching trailing code-fence line from a buffered string.
+
+    Companion to `_strip_code_fences` above, for callers that already have the
+    full text (not a stream) — `generate_model_doc()`'s response, in this case.
+    Only strips the trailing fence when a leading one was found, for the same
+    reason as the streaming stripper: bare content that merely ends in a ```
+    line must survive untouched.
+    """
+    lines = text.split("\n")
+    if not lines or not _FENCE_RE.match(lines[0]):
+        return text
+    end = len(lines) - 1
+    if end > 0 and _FENCE_RE.match(lines[end]):
+        lines = lines[1:end]
+    else:
+        lines = lines[1:]
+    return "\n".join(lines)
+
+
 def generate_model_doc(
     source_code: str,
     model_code: str,
@@ -330,7 +350,10 @@ def generate_model_doc(
             output_config={"effort": REPORT_EFFORT},
         )
         text = next((b.text for b in resp.content if b.type == "text"), None)
-        return text.strip() if text and text.strip() else None
+        if not text or not text.strip():
+            return None
+        stripped = _strip_fence_lines(text.strip())
+        return stripped.strip() or None
     except Exception:  # never let documentation break a successful translation
         logger.exception("model.md generation failed")
         return None

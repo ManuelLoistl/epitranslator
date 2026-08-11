@@ -80,7 +80,7 @@ class AgeStructuredSeirModel(Model):
 
     def __init__(self, config):
         super().__init__(config)
-        # The config's compartment list wins (a variant may declare a subset).
+        # Override with the compartment list from config (may be a variant subset).
         self.compartment_list = config["compartment_list"]
 
     def prepare_initial_state(self):
