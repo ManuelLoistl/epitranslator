@@ -291,6 +291,17 @@
     </div>
   </section>
 
+  <section class="report" id="modelDoc" hidden>
+    <button class="report-head" id="modelDocToggle" aria-expanded="true">
+      <span class="chev">▾</span> model.md — documentation for the model folder
+      <span style="float:right; display:flex; gap:8px;">
+        <button class="secondary mini" id="modelDocDownload">Download</button>
+        <button class="secondary mini" id="modelDocCopy">Copy</button>
+      </span>
+    </button>
+    <div class="report-body"><pre id="modelDocBody"></pre></div>
+  </section>
+
   <dialog id="schemaModal" class="modal-box" aria-label="Target schema reference">
     <div class="modal-head">
       <span>Target schema reference — the contract the translated model.py conforms to</span>
@@ -321,6 +332,7 @@ const BINARY_EXT = new Set(["rds","rdata","mat","npy","npz","xlsx","xls","feathe
 const MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
 let elapsedTimer = null;
 let outputRaw = "";   // the raw translated code — the source of truth for copy/download
+let modelDocRaw = "";   // the raw model.md text — source of truth for copy/download
 
 // Minimal, self-contained Python highlighter. Cosmetic only: copy/download always
 // use `outputRaw`, so imperfect highlighting can never corrupt the delivered code.
@@ -485,6 +497,7 @@ function clearRight() {   // clear the translation output + report only (keep so
   $("output").textContent = "";
   $("gutter").textContent = "";
   resetReport();
+  modelDocRaw = ""; $("modelDocBody").textContent = ""; $("modelDoc").hidden = true;
   setPhase("idle");
 }
 
@@ -495,6 +508,7 @@ function clearAll() {     // full reset — both panes, status, and saved sessio
   $("output").textContent = "";
   $("gutter").textContent = "";
   resetReport();
+  modelDocRaw = ""; $("modelDocBody").textContent = ""; $("modelDoc").hidden = true;
   setStatus("");
   $("category").selectedIndex = 0;   // back to "Unspecified"
   try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ }
@@ -571,6 +585,12 @@ function renderReport(r) {
 
   $("auditBar").textContent = `Translation audit (${total}) ▸`;
   $("report").hidden = !(total || att.length);
+}
+
+function renderModelDoc(text) {
+  modelDocRaw = text || "";
+  $("modelDocBody").textContent = modelDocRaw;
+  $("modelDoc").hidden = !modelDocRaw;
 }
 
 function escapeHtml(s) {
@@ -672,6 +692,7 @@ async function translate() {
       }
       if (evt.report) { renderReport(evt.report); }
       if (evt.report_error) { showReportUnavailable(); }
+      if (evt.model_doc) { renderModelDoc(evt.model_doc); }
       if (evt.text) {
         $("placeholder").hidden = true;
         outputRaw += evt.text;
@@ -853,6 +874,28 @@ $("reportToggle").addEventListener("click", () => {
 });
 $("schemaDownload").addEventListener("click", () => {
   if (schemaText) downloadText("target_schema.py", schemaText, "text/x-python");
+});
+$("modelDocToggle").addEventListener("click", (e) => {
+  if (e.target.tagName === "BUTTON") return;   // let Copy/Download through
+  const collapsed = $("modelDoc").classList.toggle("collapsed");
+  $("modelDocToggle").setAttribute("aria-expanded", String(!collapsed));
+});
+$("modelDocDownload").addEventListener("click", () => {
+  if (modelDocRaw) downloadText("model.md", modelDocRaw, "text/markdown");
+});
+$("modelDocCopy").addEventListener("click", async () => {
+  if (!modelDocRaw.trim()) { setStatus("Nothing to copy yet.", true); return; }
+  try {
+    await navigator.clipboard.writeText(modelDocRaw);
+  } catch (e) {   // fallback for non-secure contexts / denied permission
+    const ta = document.createElement("textarea");
+    ta.value = modelDocRaw; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+  const b = $("modelDocCopy"); b.textContent = "Copied ✓";
+  setTimeout(() => { b.textContent = "Copy"; }, 1500);
 });
 
 // --- Persistence wiring ------------------------------------------------------

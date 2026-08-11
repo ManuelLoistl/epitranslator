@@ -120,3 +120,26 @@ def test_system_prompt_includes_multifile_guidance():
 
 def test_assets_status_reports_multifile_present():
     assert assets_status()["multi_file_guidance_present"] is True
+
+
+# --- model.md (third call) ----------------------------------------------------
+
+def test_model_doc_prompt_present():
+    from backend.prompt import build_model_doc_system_prompt
+
+    text = build_model_doc_system_prompt().lower()
+    assert "model.md" in text
+    assert "markdown" in text
+
+
+def test_model_doc_user_message_includes_source_and_model():
+    from backend.prompt import build_model_doc_user_message
+
+    msg = build_model_doc_user_message("SRC_HERE", "MODEL_HERE", "R")
+    assert "SRC_HERE" in msg
+    assert "MODEL_HERE" in msg
+    assert "source language: R" in msg
+
+
+def test_generate_model_doc_none_on_empty_code():
+    assert translator.generate_model_doc("some source", "") is None

@@ -29,6 +29,7 @@ _OUTPUT_REPORT_FILE = _ASSETS / "output_report.md"
 _MULTI_FILE_FILE = _ASSETS / "multi_file_guidance.md"
 _STRUCTURE_GUIDANCE_FILE = _ASSETS / "structure_guidance.md"
 _METADATA_FILE = _ASSETS / "metadata_guidance.md"
+_MODEL_DOC_FILE = _ASSETS / "model_doc.md"
 _EXAMPLES_DIR = _ASSETS / "examples"
 
 # Map common source-model file extensions to a human-readable language name,
@@ -210,6 +211,27 @@ def build_report_user_message(
     )
 
 
+def build_model_doc_system_prompt() -> str:
+    """Instructions for the model.md call: how to document the translated model."""
+    return _strip_html_comments(_read(_MODEL_DOC_FILE))
+
+
+def build_model_doc_user_message(
+    source_code: str,
+    model_code: str,
+    source_language: str | None = None,
+) -> str:
+    """The model.md call's user turn: the source and the translated model.py."""
+    lang = (source_language or "").strip()
+    lang_note = f" (source language: {lang})" if lang else ""
+    return (
+        f"SOURCE MODEL{lang_note}:\n\n```\n{source_code.rstrip()}\n```\n\n"
+        "TRANSLATED model.py:\n\n"
+        f"```python\n{model_code.rstrip()}\n```\n\n"
+        "Write the model.md document per the instructions."
+    )
+
+
 def schema_reference() -> str:
     """The target schema reference text, for the in-app docs viewer.
 
@@ -234,4 +256,6 @@ def assets_status() -> dict:
         and bool(_strip_html_comments(_read(_MULTI_FILE_FILE))),
         "metadata_guidance_present": _METADATA_FILE.is_file()
         and bool(_strip_html_comments(_read(_METADATA_FILE))),
+        "model_doc_present": _MODEL_DOC_FILE.is_file()
+        and bool(_strip_html_comments(_read(_MODEL_DOC_FILE))),
     }

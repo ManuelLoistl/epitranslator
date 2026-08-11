@@ -31,6 +31,8 @@ from backend.prompt import (
     build_user_message,
     build_report_system_prompt,
     build_report_user_message,
+    build_model_doc_system_prompt,
+    build_model_doc_user_message,
 )
 
 # Matches a markdown code-fence line (```), optionally with a language tag.
@@ -295,6 +297,42 @@ def generate_report(
         return obj if isinstance(obj, dict) else None
     except Exception:  # never let the report break a successful translation
         logger.exception("report generation failed")
+        return None
+
+
+def generate_model_doc(
+    source_code: str,
+    model_code: str,
+    source_language: str | None = None,
+) -> Optional[str]:
+    """Third call: the `model.md` the framework reads into the model artifact.
+
+    Plain markdown, not structured output — it is documentation, not data. Shares
+    the report call's model/effort/token budget. Returns None on any failure so a
+    successful translation is never lost to a documentation error.
+    """
+    if not model_code.strip():
+        return None
+    try:
+        client = _get_client()
+        resp = client.messages.create(
+            model=REPORT_MODEL,
+            max_tokens=REPORT_MAX_TOKENS,
+            system=build_model_doc_system_prompt(),
+            messages=[
+                {
+                    "role": "user",
+                    "content": build_model_doc_user_message(
+                        source_code, model_code, source_language
+                    ),
+                }
+            ],
+            output_config={"effort": REPORT_EFFORT},
+        )
+        text = next((b.text for b in resp.content if b.type == "text"), None)
+        return text.strip() if text and text.strip() else None
+    except Exception:  # never let documentation break a successful translation
+        logger.exception("model.md generation failed")
         return None
 
 

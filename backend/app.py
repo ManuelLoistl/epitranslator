@@ -223,6 +223,14 @@ async def translate(payload: dict, request: Request) -> StreamingResponse:
                 yield _sse({"report": report})
             else:
                 yield _sse({"report_error": True})
+            # 4. Third call: the model.md documentation file. Optional — a failure
+            #    is silent, the translation still stands.
+            yield _sse({"status": "Writing model.md…"})
+            model_doc = translator.generate_model_doc(
+                source_code, code, source_language
+            )
+            if model_doc:
+                yield _sse({"model_doc": model_doc})
             yield _sse({"done": True})
         except Exception:  # full detail is logged; the client gets a generic message
             logger.exception("translation failed")
