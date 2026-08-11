@@ -140,6 +140,7 @@
   .report-head .chev { display: inline-block; transition: transform 0.15s; }
   .report.collapsed .report-head .chev { transform: rotate(-90deg); }
   .report.collapsed .report-body { display: none; }
+  #modelDocBody { max-height: 40vh; overflow: auto; padding: 16px; }
   .banner { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; }
   .banner:empty { display: none; }
   .att { border-radius: 6px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
@@ -292,13 +293,13 @@
   </section>
 
   <section class="report" id="modelDoc" hidden>
-    <button class="report-head" id="modelDocToggle" aria-expanded="true">
+    <div class="report-head" id="modelDocToggle" role="button" tabindex="0" aria-expanded="true">
       <span class="chev">▾</span> model.md — documentation for the model folder
-      <span style="float:right; display:flex; gap:8px;">
+      <span style="margin-left:auto; display:flex; gap:8px;">
         <button class="secondary mini" id="modelDocDownload">Download</button>
         <button class="secondary mini" id="modelDocCopy">Copy</button>
       </span>
-    </button>
+    </div>
     <div class="report-body"><pre id="modelDocBody"></pre></div>
   </section>
 
@@ -888,6 +889,10 @@ $("modelDocToggle").addEventListener("click", (e) => {
   if (e.target.tagName === "BUTTON") return;   // let Copy/Download through
   const collapsed = $("modelDoc").classList.toggle("collapsed");
   $("modelDocToggle").setAttribute("aria-expanded", String(!collapsed));
+});
+$("modelDocToggle").addEventListener("keydown", (e) => {   // div toggle, so Enter/Space need wiring
+  if (e.target.tagName === "BUTTON") return;   // let Copy/Download's own key handling through
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("modelDocToggle").click(); }
 });
 $("modelDocDownload").addEventListener("click", () => {
   if (modelDocRaw) downloadText("model.md", modelDocRaw, "text/markdown");
