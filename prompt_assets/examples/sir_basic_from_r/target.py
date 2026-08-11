@@ -56,6 +56,13 @@ class ExampleSirJaxModel(Model):
 
     def __init__(self, config):
         super().__init__(config)
+        # Fall back to the schema defaults when the config doesn't override
+        # them (self.beta / self.gamma come back None from
+        # _load_transmission_params when transmission_dict is empty).
+        if self.beta is None:
+            self.beta = 0.3
+        if self.gamma is None:
+            self.gamma = 1.0 / 10.0
 
     def prepare_initial_state(self):
         # No inter-region travel — the framework supplies the identity matrix.

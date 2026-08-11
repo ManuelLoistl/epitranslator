@@ -20,6 +20,137 @@ translated `model.py` must conform to) + the worked examples. See
 
 ---
 
+## 2026-08-11
+
+### Fix: three worked examples left transmission rates `None`, silently killing the epidemic
+
+#### Summary
+
+Running all four worked examples through a real checkout of the upstream
+framework (commit `3e28faa`) surfaced that three of the four —
+`sir_basic_from_r`, `age_structured_seir_from_r`, and
+`stochastic_erlang_vaccine_from_python` — never gave their transmission-edge
+attributes (`self.beta`, `self.gamma`, etc.) a fallback value. The framework's
+`_load_transmission_params()` sets these to `None` whenever the run config's
+`transmission_dict` doesn't override them (true for any minimal/example
+config, including the ones `generate_artifact --example-config` produces).
+Two different silent failure modes resulted:
+
+- In `sir_basic_from_r`, `_compute_equations()` silently **skips** any edge
+  whose rate is `None` — so the S→I edge never fired. The model built, ran,
+  and passed every structural smoke check (no NaN, no negatives, valid
+  shape), but the population never moved: `I` stayed flat at its initial
+  value for the full 90-day run. This is exactly the "transmission edge lost
+  its coupling to infectives" failure mode from the 2026-07-01 entry above,
+  just reached a different way (missing default instead of a wrong
+  `frequency_dependent` flag).
+- In `age_structured_seir_from_r` and `stochastic_erlang_vaccine_from_python`,
+  the equations reference the rate directly in a manual expression
+  (`rates["beta"] * travel_matrix`, `params["beta"] * foi * S`), so `None`
+  raised a `TypeError` instead of failing silently.
+
+The real framework's own shipped models establish the fix: e.g.
+`compartment/models/ebola_jax_model/model.py` sets
+`if self.beta is None: self.beta = 0.125` (and similarly for `sigma`,
+`gamma`) right after `super().__init__(config)`. Our own
+`sir_stochastic_from_python` example already followed this convention
+(`if self.beta is None: self.beta = 0.4`) — the other three examples did not,
+and taught an incomplete pattern.
+
+Separately, `sir_stochastic_from_python` reused the disease type
+`COVID_SIR_STOCHASTIC` and class name `CovidSirStochasticModel` — an exact
+copy of upstream's own shipped `compartment/models/test_covid_sir_stochastic`
+model. Since upstream models are submitted into the same `compartment/models/`
+tree the example teaches translation into, this collided at registry
+load (`RuntimeError: Duplicate DISEASE_TYPE`) the moment both were present
+together, and broke the sibling naming convention the other three examples
+already follow (`EXAMPLE_*`).
+
+#### Changes to `prompt_assets/examples/sir_basic_from_r/target.py`
+
+Added, in `__init__`, matching the schema's own declared defaults:
+```python
+if self.beta is None:
+    self.beta = 0.3
+if self.gamma is None:
+    self.gamma = 1.0 / 10.0
+```
+
+#### Changes to `prompt_assets/examples/age_structured_seir_from_r/target.py`
+
+Added, in `__init__`:
+```python
+if self.beta is None:
+    self.beta = 0.05
+if self.theta is None:
+    self.theta = 1.0 / 5.0
+if self.gamma is None:
+    self.gamma = 1.0 / 7.0
+```
+
+#### Changes to `prompt_assets/examples/stochastic_erlang_vaccine_from_python/target.py`
+
+Added, in `__init__`:
+```python
+if self.beta is None:
+    self.beta = 0.4
+if self.beta_v is None:
+    self.beta_v = 0.12
+if self.nu is None:
+    self.nu = 0.01
+if self.theta1 is None:
+    self.theta1 = 1.0 / 2.5
+if self.theta2 is None:
+    self.theta2 = 1.0 / 2.5
+if self.gamma is None:
+    self.gamma = 1.0 / 7.0
+```
+
+#### Change to `prompt_assets/examples/sir_stochastic_from_python/target.py`
+
+Before:
+```python
+disease_type="COVID_SIR_STOCHASTIC",
+```
+After:
+```python
+disease_type="EXAMPLE_SIR_STOCHASTIC",
+```
+
+#### Verification
+
+All four examples installed as `compartment/models/epitrans_<name>/model.py`
+in a clean checkout pinned to upstream `3e28faa`, config generated via
+`generate_artifact --model-dir ... --example-config`, then run through
+upstream's own smoke suite and a behavioural epidemic check:
+
+- `uv run pytest tests/test_smoke.py -q -m integration -k epitrans` — 48
+  passed (12 checks × 4 examples): builds, ODE/Euler solve, valid output
+  structure, no NaN, no negative compartments.
+- Behavioural check (population-weighted `I` compartment over the 90-day
+  run, all four now show a real rise-then-decline epidemic curve):
+  - `sir_basic_from_r`: I first/peak/last = 10000.0 / 303627.9 / 3831.3
+  - `age_structured_seir_from_r`: I first/peak/last = 3300.0 / 33053.4 / 13679.7
+  - `sir_stochastic_from_python`: I first/peak/last = 10000.0 / 293655.5 / 152.0
+  - `stochastic_erlang_vaccine_from_python`: I first/peak/last = 10000.0 / 109858.5 / 15553.0
+- Before the fix, `sir_basic_from_r` alone (unmodified) produced a flat
+  `I first/peak/last = 10000.0 / 10000.0 / 10000.0` — confirmed no-epidemic
+  regression, then confirmed fixed.
+
+Verified 2026-08-11.
+
+#### Notes
+
+- This is a verification-only pass (Task 5 of the Tasks 1-4 upstream resync
+  to `3e28faa`); no other content in these examples changed.
+- The missing-default pattern is easy to miss because the framework's smoke
+  tests check structure, not epidemic dynamics — a model can build and run
+  cleanly while doing nothing epidemiologically. Worth flagging upstream as a
+  candidate framework-level check (e.g. warn when a transmission-edge
+  attribute is still `None` after `__init__` completes).
+
+---
+
 ## 2026-07-01
 
 ### Fix: infection edges wrongly mapped to `frequency_dependent=False`

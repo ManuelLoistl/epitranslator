@@ -95,6 +95,21 @@ class StochasticErlangVaccineModel(Model):
 
     def __init__(self, config):
         super().__init__(config)
+        # Fall back to the schema defaults when the config doesn't override
+        # them (these come back None from _load_transmission_params when
+        # transmission_dict is empty).
+        if self.beta is None:
+            self.beta = 0.4
+        if self.beta_v is None:
+            self.beta_v = 0.12
+        if self.nu is None:
+            self.nu = 0.01
+        if self.theta1 is None:
+            self.theta1 = 1.0 / 2.5
+        if self.theta2 is None:
+            self.theta2 = 1.0 / 2.5
+        if self.gamma is None:
+            self.gamma = 1.0 / 7.0
         # PRNG key for stochastic draws; pass "seed" in the config for reproducibility.
         import time
         seed = config.get("seed") if hasattr(config, "get") else None

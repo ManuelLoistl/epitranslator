@@ -30,7 +30,7 @@ class CovidSirStochasticModel(Model):
     @classmethod
     def define_parameters(cls, schema):
         schema.set_model_info(
-            disease_type="COVID_SIR_STOCHASTIC",
+            disease_type="EXAMPLE_SIR_STOCHASTIC",
             label="COVID-19 Stochastic SIR",
             description="A simple stochastic SIR model for COVID-19",
         )
