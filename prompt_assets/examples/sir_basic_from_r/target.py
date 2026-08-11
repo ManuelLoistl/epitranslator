@@ -79,7 +79,7 @@ class ExampleSirJaxModel(Model):
         )
         rates["gamma"] = params["gamma"]
 
-        # Framework applies the edges (frequency-dependent S->I, mass-action
-        # I->R) and accumulates cumulative I_total / R_total automatically.
+        # Framework applies the edges (frequency-dependent S->I, standard
+        # rate * source I->R) and accumulates I_total / R_total automatically.
         derivs = self._compute_equations(states, rates)
         return jnp.stack([derivs[c] for c in self.compartment_list])

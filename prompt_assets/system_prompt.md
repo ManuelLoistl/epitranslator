@@ -109,6 +109,11 @@ and skips edges whose compartments aren't active.
   `ValueType.PERCENTAGE` (0–100) is auto-divided by 100. A per-day rate is the
   default `ValueType.RATE`. Getting this wrong is the most common translation
   error (rate-vs-period inversion).
+- **Auto-conversion covers transmission edges only.** `DAYS`/`PERCENTAGE` are
+  converted for edge rates. A value declared with `add_disease_parameter` or
+  `add_admin_zone_field` arrives in **native** units (a `PERCENTAGE` parameter is
+  `20.0`, not `0.2`) — convert where you use it with
+  `self._to_rate(value, ValueType.PERCENTAGE)`.
 - **Infection edges need `frequency_dependent=True`.**
   `frequency_dependent=False` computes `rate * source` with **no** infective
   coupling, so an S→I/S→E edge left `False` silently drops the `I` term and

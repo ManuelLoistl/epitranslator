@@ -16,10 +16,16 @@ from typing import Any
 class ValueType(str, Enum):
     """Type of a parameter value — drives unit conversion and config rendering.
 
-    Conversions applied automatically at model load time:
+    Conversions applied automatically at model load time — for TRANSMISSION
+    EDGES ONLY (_load_transmission_params reads schema.transmission_edges):
       DAYS       -> per-day rate as 1/value  (default=10.0 ⇒ rate 0.1) — DO NOT pre-invert
       PERCENTAGE -> fraction as value/100    (default=80.0 ⇒ 0.8)
       RATE       -> used as-is (per-day rate)
+
+    Values from add_disease_parameter() / add_admin_zone_field() are NOT
+    converted — they arrive in native units (a PERCENTAGE parameter is 20.0,
+    not 0.2). Convert at the point of use with
+    self._to_rate(value, ValueType.PERCENTAGE).
     """
     RATE = "rate"
     DAYS = "days"
@@ -123,7 +129,8 @@ class ParameterSchemaBuilder:
                               value_type: "ValueType", default: Any,
                               min_value: float | None = None, max_value: float | None = None,
                               unit: str | None = None, required: bool = True,
-                              options: list[str] | None = None, **kwargs: Any) -> None: ...
+                              options: list[str] | None = None,
+                              enable_variance: bool = True, **kwargs: Any) -> None: ...
 
     def build(self) -> Any: ...  # finalize; raises if no model info / no compartments
 
@@ -161,13 +168,21 @@ class Model:
     # self.start_date, self.start_date_ordinal, self.n_timesteps, self.admin_units
 
     # --- Helpers available inside equation() ---
+    @staticmethod
+    def _to_rate(value: float, value_type: "ValueType") -> float:
+        """Native units -> per-day rate (DAYS -> 1/value, PERCENTAGE -> value/100).
+        Use this for disease parameters / admin-zone fields, which the framework
+        does NOT convert for you."""
+        ...
+
     def _unpack_params(self, p) -> dict:
         """Tuple of params (schema edge order) -> {variable_name: value}."""
         ...
 
     def _compute_equations(self, states: dict, rates: dict,
                              skip_edges: set[str] | None = None) -> dict:
-        """Apply all transmission edges (mass-action / frequency-dependent),
+        """Apply all transmission edges (standard `rate * source` /
+        frequency-dependent FOI),
         auto-accumulate into <target>_total, skip inactive/skipped edges.
         Returns {compartment_id: deriv_array}."""
         ...
