@@ -583,3 +583,77 @@ while verifying, not something this log tracks.
   EpiTranslator-owned prompt assets and are out of this log's scope per the
   header above; changes to them (including the `model.md`-generation feature
   shipped alongside this resync) are not recorded here.
+
+## 2026-08-18
+
+### Resync: `add_disease_parameter` → `add_parameter` (`3e28faa` → `699afe6`)
+
+#### Summary
+
+A routine drift check against upstream HEAD `699afe6` ("Feat/aug 14
+updates", 2026-08-14) found one API change since the 2026-08-11 resync
+that our prompt assets teach: upstream commit `3594940` ("Add example
+models", #114) renamed `ParameterSchemaBuilder.add_disease_parameter()`
+to `add_parameter()`. Upstream kept a deprecated alias
+(`add_disease_parameter = add_parameter` in `compartment/parameters.py`),
+so translations produced with the old name **still run today** — this
+resync is preventive, so the prompt teaches the canonical name before the
+alias is eventually dropped.
+
+#### Changes
+
+Pure rename, no semantic change. Every occurrence of
+`add_disease_parameter` became `add_parameter`:
+
+- **`prompt_assets/target_schema.py`** (3 sites): the `ValueType`
+  docstring's conversion note ("Values from add_parameter() /
+  add_admin_zone_field() are NOT converted…"), the bespoke-fields section
+  comment, and the method stub itself.
+
+  Before:
+  ```python
+  def add_disease_parameter(self, name: str, label: str, description: str, ...)
+  ```
+  After:
+  ```python
+  def add_parameter(self, name: str, label: str, description: str, ...)
+  ```
+
+- **`prompt_assets/system_prompt.md`** (5 sites): authoring-recipe step 5
+  (twice), the auto-conversion-covers-edges-only rule, the mobility rule,
+  and the mapping-fidelity rule. All are bare name references; no
+  surrounding wording changed.
+
+#### Also checked, no action needed
+
+Diff reviewed over `compartment/model.py`, `compartment/parameters.py`,
+and `.claude/MODEL_AUTHORING_REFERENCE.md` for `3e28faa..699afe6`:
+
+- `set_num_runs()` was removed upstream — no prompt asset ever
+  referenced it (verified by grep), so nothing to change.
+- New auto-generated `model_key` artifact field — assigned by the
+  framework from the model's class path; model authors declare nothing,
+  so translations are unaffected.
+- New `Model.dataset()` / `datasets.yaml` mechanism for modeler-supplied
+  data files — additive; translations embed parameters inline and ship no
+  data files, so the prompt does not need to teach it.
+- No changes to `equation()`, `prepare_initial_state()`,
+  `add_transmission_edge()`, or any other signature the schema reference
+  documents. The worked `examples/` use none of the renamed methods and
+  are unchanged.
+
+#### Notes
+
+- Pure resync: net divergence from upstream went down, not up.
+- `tests/test_prompt_assets_api.py` now lists `add_disease_parameter` in
+  its retired-names guard (with a comment noting the deprecated alias
+  still exists upstream) and pins `699afe6` as the checked upstream
+  commit.
+- `structure_guidance.md` also carried one occurrence and was updated
+  alongside, but it is EpiTranslator-owned and out of this log's scope
+  per the header above.
+- Unlike the 2026-08-11 resync, no end-to-end verification against an
+  upstream checkout was run for this entry: the change is a pure
+  identifier rename whose old name remains a working alias, so the
+  existing worked examples (which use neither name) and translations
+  remain runnable by upstream's own definition.

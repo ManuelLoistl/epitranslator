@@ -3,7 +3,7 @@
 The assembled system prompt teaches Claude an API surface. When the framework
 renames or removes part of that surface, every translation we emit stops
 building — silently, because the app never imports the framework. These tests
-pin the names the framework actually exposes at upstream 3e28faa (2026-08-10).
+pin the names the framework actually exposes at upstream 699afe6 (2026-08-14).
 
 When upstream renames something again, update BOTH the assets and this file.
 """
@@ -15,8 +15,11 @@ from backend.prompt import build_system_prompt
 ASSETS = Path(__file__).resolve().parent.parent / "prompt_assets"
 EXAMPLES = sorted(ASSETS.glob("examples/*/target.py"))
 
-# Framework names that no longer exist. None may appear anywhere in the prompt.
-RETIRED = ["derivative(", "_compute_derivatives", "set_travel_volume"]
+# Framework names that no longer exist — plus add_disease_parameter, which
+# upstream renamed to add_parameter at 3594940 (a deprecated alias remains,
+# but the prompt must teach the canonical name). None may appear in the prompt.
+RETIRED = ["derivative(", "_compute_derivatives", "set_travel_volume",
+           "add_disease_parameter"]
 
 
 def test_examples_exist():

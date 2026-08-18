@@ -58,9 +58,9 @@ Subclass `Model` and implement:
    `frequency_dependent=True`** — see the mapping guidance below.
 4. `schema.add_intervention(...)` — optional; `target_rates=[...]` lists the
    edge variable names it reduces.
-5. mobility parameters (declared as ordinary `add_disease_parameter` fields —
+5. mobility parameters (declared as ordinary `add_parameter` fields —
    see the mobility rule below), demographics / contact matrix,
-   `add_admin_zone_field`, `add_disease_parameter` — optional, as needed.
+   `add_admin_zone_field`, `add_parameter` — optional, as needed.
 
 ## `equation()` patterns
 
@@ -110,7 +110,7 @@ and skips edges whose compartments aren't active.
   default `ValueType.RATE`. Getting this wrong is the most common translation
   error (rate-vs-period inversion).
 - **Auto-conversion covers transmission edges only.** `DAYS`/`PERCENTAGE` are
-  converted for edge rates. A value declared with `add_disease_parameter` or
+  converted for edge rates. A value declared with `add_parameter` or
   `add_admin_zone_field` arrives in **native** units (a `PERCENTAGE` parameter is
   `20.0`, not `0.2`) — convert where you use it with
   `self._to_rate(value, ValueType.PERCENTAGE)`.
@@ -134,7 +134,7 @@ and skips edges whose compartments aren't active.
   `self.travel_matrix` *before* `prepare_initial_state()` — identity when the
   model declares no travel. Never assign `self.travel_matrix` yourself. If the
   source has a travel/mobility model, declare its parameters with
-  `add_disease_parameter` (convention: `travel_sigma`, `ValueType.PERCENTAGE`)
+  `add_parameter` (convention: `travel_sigma`, `ValueType.PERCENTAGE`)
   and override `build_travel_matrix(self, admin_zones)` to return the `(R, R)`
   matrix — rows summing to 1, diagonal = the stay-home fraction `1 - sigma`,
   row/column order matching `admin_zones`. Never name a mobility parameter
@@ -149,7 +149,7 @@ and skips edges whose compartments aren't active.
 - Identify the compartments and the flows between them; each flow becomes a
   compartment, an edge, or (rarely) a manual flow.
 - Map every rate/parameter to an edge `variable_name` (or an
-  `add_disease_parameter` for constants that aren't a single edge rate),
+  `add_parameter` for constants that aren't a single edge rate),
   carrying the source's numeric default and the correct `value_type`.
 - **Infection edges must couple to infectives.** The schema offers only two
   edge forms: `frequency_dependent=False` gives `rate * source` (NO dependence

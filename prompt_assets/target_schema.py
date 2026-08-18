@@ -22,7 +22,7 @@ class ValueType(str, Enum):
       PERCENTAGE -> fraction as value/100    (default=80.0 ⇒ 0.8)
       RATE       -> used as-is (per-day rate)
 
-    Values from add_disease_parameter() / add_admin_zone_field() are NOT
+    Values from add_parameter() / add_admin_zone_field() are NOT
     converted — they arrive in native units (a PERCENTAGE parameter is 20.0,
     not 0.2). Convert at the point of use with
     self._to_rate(value, ValueType.PERCENTAGE).
@@ -134,19 +134,19 @@ class ParameterSchemaBuilder:
 
     # --- Bespoke fields (optional) ---
     # add_admin_zone_field: per-zone inputs (e.g. seroprevalence, temperature).
-    # add_disease_parameter: top-level disease constants that aren't a single edge
+    # add_parameter: top-level disease constants that aren't a single edge
     # rate (e.g. immunity_period, or the constants behind a manual flow).
     def add_admin_zone_field(self, name: str, label: str, description: str,
                              value_type: "ValueType", default: Any,
                              min_value: float | None = None, max_value: float | None = None,
                              unit: str | None = None, required: bool = False,
                              options: list[str] | None = None, **kwargs: Any) -> None: ...
-    def add_disease_parameter(self, name: str, label: str, description: str,
-                              value_type: "ValueType", default: Any,
-                              min_value: float | None = None, max_value: float | None = None,
-                              unit: str | None = None, required: bool = True,
-                              options: list[str] | None = None,
-                              enable_variance: bool = True, **kwargs: Any) -> None: ...
+    def add_parameter(self, name: str, label: str, description: str,
+                      value_type: "ValueType", default: Any,
+                      min_value: float | None = None, max_value: float | None = None,
+                      unit: str | None = None, required: bool = True,
+                      options: list[str] | None = None,
+                      enable_variance: bool = True, **kwargs: Any) -> None: ...
 
     def build(self) -> Any: ...  # finalize; raises if no model info / no compartments
 
