@@ -119,14 +119,28 @@
   .filebar { display:flex; align-items:center; gap:8px; padding:8px 16px;
              border-bottom:1px solid var(--border); }
   .mini { padding:4px 10px; font-size:12px; font-weight:500; border-radius:6px; }
-  .files { flex:1; overflow:auto; display:flex; flex-direction:column; min-height:0; }
-  .fileblock { display:flex; flex-direction:column; border-bottom:1px solid var(--border);
-               flex-shrink:0; }
-  .fileblock .fb-head { display:flex; gap:8px; align-items:center; padding:6px 16px 0; }
+  .files { flex:1; display:flex; flex-direction:column; min-height:0; }
+  .fileblock { display:none; }
+  .fileblock.active { display:flex; flex-direction:column; flex:1; min-height:0; }
+  .fileblock .fb-head { display:flex; gap:8px; align-items:center; padding:8px 16px 0; }
   .fileblock .fb-head input { flex:1; }
-  .fileblock textarea { min-height:360px; }
-  .fb-remove { background:transparent; border:0; color:var(--muted);
-               cursor:pointer; font-size:16px; padding:0 6px; }
+  .fileblock textarea { flex:1; min-height:0; }
+  /* source-file tabs: one tab per file, × to remove, + to add */
+  .src-tabbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:2px;
+                padding:0 16px; border-bottom:1px solid var(--border); }
+  .src-tab { display:inline-flex; align-items:center; border-bottom:2px solid transparent; }
+  .src-tab button, .src-plus { background:transparent; border:0; border-radius:0;
+                color:var(--muted); cursor:pointer;
+                font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                font-size:12px; font-weight:500; }
+  .src-tab button:hover, .src-plus:hover:not(:disabled) { background:transparent; color:var(--text); }
+  .src-tab-label { padding:8px 2px 6px 10px; max-width:180px; overflow:hidden;
+                text-overflow:ellipsis; white-space:nowrap; }
+  .src-close { padding:8px 8px 6px 4px; }
+  .src-tab.active { border-bottom-color:var(--accent); }
+  .src-tab.active button { color:var(--text); }
+  .src-plus { padding:8px 10px 6px; }
+  .src-plus:disabled { opacity:0.45; cursor:default; }
   .status { color: var(--muted); font-size: 13px; }
   .status.error { color: #f78a8a; }
   .report { border-top: 2px solid var(--accent); background: var(--panel);
@@ -137,17 +151,9 @@
                  padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--muted);
                  cursor: pointer; display: flex; align-items: center; gap: 8px; }
   .report-head:hover:not(:disabled) { background: transparent; color: var(--text); }
-  /* modelDoc's header is a plain div (not itself a button) so the Copy/Download
-     buttons can sit as its siblings; the collapse toggle is the nested button. */
-  div.report-head { cursor: default; }
-  div.report-head .toggle-btn { background: transparent; border: 0; border-radius: 0;
-                 padding: 0; margin: 0; font: inherit; font-weight: inherit; color: inherit;
-                 cursor: pointer; display: flex; align-items: center; gap: 8px; }
-  div.report-head .toggle-btn:hover:not(:disabled) { background: transparent; color: var(--text); }
   .report-head .chev { display: inline-block; transition: transform 0.15s; }
   .report.collapsed .report-head .chev { transform: rotate(-90deg); }
   .report.collapsed .report-body { display: none; }
-  #modelDocBody { max-height: 40vh; overflow: auto; padding: 16px; }
   .banner { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; }
   .banner:empty { display: none; }
   .att { border-radius: 6px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
@@ -184,17 +190,43 @@
   .guide summary { cursor: pointer; user-select: none; }
   .guide p { margin: 6px 0 0; line-height: 1.5; }
   .guide code, .placeholder code { color: var(--accent); }
-  .fileblock .fb-head { position: sticky; top: 0; z-index: 1; background: var(--panel); }
-  .fb-toggle { background: transparent; border: 0; color: var(--muted);
-               cursor: pointer; font-size: 11px; padding: 0; width: 16px; }
   .fileblock .fb-head input { flex: 1; background: var(--bg); border: 1px solid var(--border);
                color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-  .fileblock.collapsed textarea { display: none; }
   .drop-hint { position: absolute; inset: 0; z-index: 5; display: none;
                align-items: center; justify-content: center; pointer-events: none;
                background: rgba(232,105,45,0.10); border: 2px dashed var(--accent);
                color: var(--accent); font-size: 14px; font-weight: 600; }
   #sourcePane.dragover .drop-hint { display: flex; }
+  /* --- output pane: file tabs (model.py / model.md) --- */
+  .tabbar { display: flex; align-items: flex-end; gap: 2px; padding: 0 16px;
+            border-bottom: 1px solid var(--border); }
+  .tab { background: transparent; border: 0; border-bottom: 2px solid transparent;
+         border-radius: 0; color: var(--muted); padding: 8px 10px 6px;
+         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+         font-size: 12px; font-weight: 500; cursor: pointer; }
+  .tab:hover:not(:disabled) { background: transparent; color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:disabled { opacity: 0.45; cursor: default; }
+  .tab.waiting::after { content: " ⋯"; color: var(--accent);
+                        animation: blink 1s ease infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  .tab.flash { animation: tabFlash 0.5s ease 3; }
+  @keyframes tabFlash { 50% { background: rgba(232,105,45,0.3); color: var(--text); } }
+  .dl-wrap { position: relative; display: inline-flex; }
+  .dl-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 40;
+             display: flex; flex-direction: column; min-width: 130px; padding: 4px;
+             background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+             box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+  .dl-menu[hidden] { display: none; }
+  .dl-menu button { background: transparent; border: 0; border-radius: 6px;
+             color: var(--text); text-align: left; padding: 6px 10px;
+             font-size: 12px; font-weight: 500; cursor: pointer; }
+  .dl-menu button:hover:not(:disabled) { background: #2b3645; }
+  .dl-menu button:disabled { color: var(--muted); opacity: 0.6; cursor: default; }
+  #docView { display: none; white-space: pre-wrap; }
+  .output-wrap.doc-active #docView { display: block; }
+  .output-wrap.doc-active #output,
+  .output-wrap.doc-active .gutter { display: none; }
   /* --- output pane: empty / working states --- */
   .output-wrap { flex: 1; position: relative; display: flex; min-height: 0; }
   .placeholder { position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -227,9 +259,6 @@
   .toast[hidden] { display: none; }
   .toast.fade { opacity: 0; transition: opacity 0.4s ease; }
   @keyframes toastIn { from { opacity: 0; } to { opacity: 1; } }
-  .fileblock.just-added { animation: blockIn 0.45s ease; }
-  @keyframes blockIn { from { opacity: 0.3; transform: translateY(-10px); background: rgba(232,105,45,0.18); }
-                       to { opacity: 1; transform: none; background: transparent; } }
 </style>
 </head>
 <body>
@@ -254,11 +283,9 @@
         </span>
       </div>
       <div class="filebar">
-        <button class="secondary mini" id="addFile">+ Add code</button>
         <button class="secondary mini" id="uploadBtn">↑ Upload files</button>
         <input type="file" id="upload" multiple hidden />
         <span class="drag-note">or drag &amp; drop them anywhere here</span>
-        <button class="secondary mini" id="collapseAll" style="display:none;">Collapse all</button>
       </div>
       <details class="guide" open>
         <summary>What to include</summary>
@@ -267,6 +294,7 @@
         (<code>.rds</code>/<code>.mat</code>/<code>.npy</code>) to text first. A contact
         matrix mainly conveys age structure.</p>
       </details>
+      <div class="src-tabbar" id="srcTabs" role="tablist" aria-label="Source files"></div>
       <div id="files" class="files"></div>
       <div class="drop-hint">Drop files to add</div>
       <div class="toast" id="toast" hidden></div>
@@ -274,15 +302,28 @@
 
     <section class="pane">
       <div class="pane-head">
-        <label>Translated (target schema)</label>
+        <label>Translated model folder</label>
         <span style="display:flex; gap:8px;">
-          <button class="secondary mini" id="download">Download</button>
+          <span class="dl-wrap">
+            <button class="secondary mini" id="download" aria-haspopup="menu" aria-expanded="false">Download ▾</button>
+            <div class="dl-menu" id="dlMenu" role="menu" hidden>
+              <button role="menuitem" id="dlCode">model.py</button>
+              <button role="menuitem" id="dlDoc">model.md</button>
+              <button role="menuitem" id="dlBoth">Both files</button>
+            </div>
+          </span>
           <button class="secondary mini" id="copy">Copy</button>
         </span>
       </div>
-      <div class="output-wrap">
+      <div class="tabbar" role="tablist" aria-label="Translated files">
+        <button class="tab active" id="tabCode" role="tab" aria-selected="true" aria-controls="output">model.py</button>
+        <button class="tab" id="tabDoc" role="tab" aria-selected="false" aria-controls="docView" disabled
+                title="Documentation for the model folder — written after the translation">model.md</button>
+      </div>
+      <div class="output-wrap" id="outputWrap">
         <div class="gutter" id="gutter"></div>
-        <pre id="output"></pre>
+        <pre id="output" role="tabpanel"></pre>
+        <pre id="docView" role="tabpanel"></pre>
         <div class="placeholder" id="placeholder"></div>
       </div>
     </section>
@@ -297,19 +338,6 @@
       <div class="audit-bar" id="auditBar"></div>
       <div class="audit-body" id="auditBody"></div>
     </div>
-  </section>
-
-  <section class="report" id="modelDoc" hidden>
-    <div class="report-head">
-      <button class="toggle-btn" id="modelDocToggle" aria-expanded="true">
-        <span class="chev">▾</span> model.md — documentation for the model folder
-      </button>
-      <span style="margin-left:auto; display:flex; gap:8px;">
-        <button class="secondary mini" id="modelDocDownload">Download</button>
-        <button class="secondary mini" id="modelDocCopy">Copy</button>
-      </span>
-    </div>
-    <div class="report-body"><pre id="modelDocBody"></pre></div>
   </section>
 
   <dialog id="schemaModal" class="modal-box" aria-label="Target schema reference">
@@ -343,6 +371,17 @@ const MAX_FILE_BYTES = 2 * 1024 * 1024;   // 2 MB per file
 let elapsedTimer = null;
 let outputRaw = "";   // the raw translated code — the source of truth for copy/download
 let modelDocRaw = "";   // the raw model.md text — source of truth for copy/download
+let activeTab = "code";   // which output-pane file tab is showing: 'code' | 'doc'
+
+function setActiveTab(tab) {
+  activeTab = tab;
+  const code = tab === "code";
+  $("tabCode").classList.toggle("active", code);
+  $("tabCode").setAttribute("aria-selected", String(code));
+  $("tabDoc").classList.toggle("active", !code);
+  $("tabDoc").setAttribute("aria-selected", String(!code));
+  $("outputWrap").classList.toggle("doc-active", !code);
+}
 
 // Minimal, self-contained Python highlighter. Cosmetic only: copy/download always
 // use `outputRaw`, so imperfect highlighting can never corrupt the delivered code.
@@ -394,7 +433,7 @@ async function loadConfig() {
       opt.textContent = cat.label;
       sel.appendChild(opt);
     }
-    if (typeof c.max_files === "number") { MAX_FILES = c.max_files; refreshAddState(); }
+    if (typeof c.max_files === "number") { MAX_FILES = c.max_files; renderSrcTabs(); }
     if (pendingCategory) { $("category").value = pendingCategory; pendingCategory = null; }
   } catch (e) {
     $("meta").textContent = "could not load config";
@@ -408,41 +447,74 @@ function addFileBlock(filename = "", content = "", atTop = false) {
   block.className = "fileblock";
   block.innerHTML =
     `<div class="fb-head">` +
-    `<button class="fb-toggle" title="Collapse / expand" aria-label="Collapse or expand this block">▾</button>` +
-    `<input type="text" class="fb-name" placeholder="name (optional, e.g. model.R)" />` +
-    `<button class="fb-remove" title="Remove" aria-label="Remove this block">×</button></div>` +
+    `<input type="text" class="fb-name" placeholder="name (optional, e.g. model.R)" /></div>` +
     `<textarea class="fb-content" placeholder="Paste model source or parameter/data here…" spellcheck="false"></textarea>`;
   block.querySelector(".fb-name").value = filename;
   block.querySelector(".fb-content").value = content;
-  block.querySelector(".fb-toggle").addEventListener("click", (e) => {
-    const collapsed = block.classList.toggle("collapsed");
-    e.currentTarget.textContent = collapsed ? "▸" : "▾";
-  });
-  block.querySelector(".fb-remove").addEventListener("click", () => {
-    block.remove();
-    if ($("files").children.length === 0) addFileBlock();
-    refreshAddState();
-    scheduleSave();
-    updateActionBtn();   // source may now be empty -> disable Clear
-  });
+  block.querySelector(".fb-name").addEventListener("input", renderSrcTabs);   // live tab label
   block.querySelector(".fb-content").addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") translate();
   });
-  if (atTop) {
-    list.prepend(block);   // new blocks land at the top
-    block.classList.add("just-added");
-    block.addEventListener("animationend", () => block.classList.remove("just-added"), { once: true });
-  } else {
-    list.appendChild(block);
-  }
-  refreshAddState();
+  if (atTop) list.prepend(block); else list.appendChild(block);
+  setActiveSrc([...list.children].indexOf(block));   // show the new file
   return block;
 }
 
-function refreshAddState() {
-  const n = $("files").children.length;
-  $("addFile").disabled = n >= MAX_FILES;
-  $("collapseAll").style.display = n > 1 ? "" : "none";
+// --- Source-file tabs --------------------------------------------------------
+let activeSrcIndex = 0;
+
+function setActiveSrc(i) {
+  const blocks = [...$("files").children];
+  activeSrcIndex = Math.max(0, Math.min(i, blocks.length - 1));
+  blocks.forEach((b, k) => b.classList.toggle("active", k === activeSrcIndex));
+  renderSrcTabs();
+}
+
+function srcLabel(block, i) {
+  return block.querySelector(".fb-name").value.trim() || `untitled-${i + 1}`;
+}
+
+function renderSrcTabs() {
+  const bar = $("srcTabs");
+  const blocks = [...$("files").children];
+  bar.innerHTML = "";
+  blocks.forEach((block, i) => {
+    const tab = document.createElement("span");
+    tab.className = "src-tab" + (i === activeSrcIndex ? " active" : "");
+    const label = document.createElement("button");
+    label.className = "src-tab-label";
+    label.setAttribute("role", "tab");
+    label.setAttribute("aria-selected", String(i === activeSrcIndex));
+    label.textContent = srcLabel(block, i);
+    label.title = srcLabel(block, i);
+    label.addEventListener("click", () => setActiveSrc(i));
+    const close = document.createElement("button");
+    close.className = "src-close";
+    close.textContent = "×";
+    close.title = "Remove";
+    close.setAttribute("aria-label", `Remove ${srcLabel(block, i)}`);
+    close.addEventListener("click", () => removeSrcFile(i));
+    tab.append(label, close);
+    bar.appendChild(tab);
+  });
+  const plus = document.createElement("button");
+  plus.className = "src-plus";
+  plus.textContent = "+";
+  plus.title = "Add a file";
+  plus.setAttribute("aria-label", "Add a file");
+  plus.disabled = blocks.length >= MAX_FILES;
+  plus.addEventListener("click", () => addFileBlock());
+  bar.appendChild(plus);
+}
+
+function removeSrcFile(i) {
+  const blocks = [...$("files").children];
+  if (!blocks[i]) return;
+  blocks[i].remove();
+  if ($("files").children.length === 0) addFileBlock();
+  else setActiveSrc(i < activeSrcIndex ? activeSrcIndex - 1 : activeSrcIndex);
+  scheduleSave();
+  updateActionBtn();   // source may now be empty -> disable Clear
 }
 
 function collectFiles() {
@@ -481,6 +553,7 @@ function restoreSession() {
   const blocks = (s.files && s.files.length) ? s.files : [{ filename: "", content: "" }];
   for (const f of blocks.slice(0, MAX_FILES)) addFileBlock(f.filename || "", f.content || "");
   if ($("files").children.length === 0) addFileBlock();
+  setActiveSrc(0);   // restored sessions open on the first file
   outputRaw = s.output || "";
   $("output").textContent = outputRaw;
   pendingCategory = s.category || null;
@@ -539,10 +612,10 @@ function resetReport() {
 
 function resetModelDoc() {
   modelDocRaw = "";
-  $("modelDocBody").textContent = "";
-  $("modelDoc").hidden = true;
-  $("modelDoc").classList.remove("collapsed");
-  $("modelDocToggle").setAttribute("aria-expanded", "true");
+  $("docView").textContent = "";
+  $("tabDoc").disabled = true;
+  $("tabDoc").classList.remove("waiting", "flash");
+  setActiveTab("code");
 }
 
 function showReportUnavailable() {
@@ -607,8 +680,14 @@ function renderReport(r) {
 
 function renderModelDoc(text) {
   modelDocRaw = text || "";
-  $("modelDocBody").textContent = modelDocRaw;
-  $("modelDoc").hidden = !modelDocRaw;
+  $("docView").textContent = modelDocRaw;
+  const t = $("tabDoc");
+  t.classList.remove("waiting");
+  t.disabled = !modelDocRaw;
+  if (modelDocRaw) {   // flash so the newly available file gets noticed
+    t.classList.add("flash");
+    t.addEventListener("animationend", () => t.classList.remove("flash"), { once: true });
+  }
 }
 
 function escapeHtml(s) {
@@ -694,8 +773,18 @@ async function translate() {
         return false;   // ignore a malformed frame rather than failing the run
       }
       if (evt.error) { setStatus(evt.error, true); errored = true; setPhaseError(evt.error); return true; }
-      if (evt.done) { hasResult = true; renderOutput(); setStatus(`Done · ${bytes.toLocaleString()} chars`); return true; }
-      if (evt.status) { setStatus(evt.status); }
+      if (evt.done) {
+        hasResult = true; renderOutput();
+        $("tabDoc").classList.remove("waiting");   // doc call may have failed silently
+        setStatus(`Done · ${bytes.toLocaleString()} chars`);
+        return true;
+      }
+      if (evt.status) {
+        setStatus(evt.status);
+        // Cosmetic: the server announces the model.md call with this status line;
+        // if the wording ever changes, the tab simply enables once content arrives.
+        if (evt.status.startsWith("Writing model.md")) $("tabDoc").classList.add("waiting");
+      }
       if (evt.retrying) {
         // Prior attempt came back truncated; server is regenerating. Clear the
         // partial output so the pane doesn't show broken code during the retry.
@@ -776,13 +865,16 @@ $("auditBar").addEventListener("click", () => {
   const open = $("auditBody").classList.toggle("open");
   $("auditBar").textContent = $("auditBar").textContent.replace(/[▸▾]$/, open ? "▾" : "▸");
 });
+$("tabCode").addEventListener("click", () => setActiveTab("code"));
+$("tabDoc").addEventListener("click", () => setActiveTab("doc"));
 $("copy").addEventListener("click", async () => {
-  if (!outputRaw.trim()) { setStatus("Nothing to copy yet.", true); return; }
+  const text = activeTab === "doc" ? modelDocRaw : outputRaw;   // copy the visible file
+  if (!text.trim()) { setStatus("Nothing to copy yet.", true); return; }
   try {
-    await navigator.clipboard.writeText(outputRaw);
+    await navigator.clipboard.writeText(text);
   } catch (e) {   // fallback for non-secure contexts / denied permission
     const ta = document.createElement("textarea");
-    ta.value = outputRaw; ta.style.position = "fixed"; ta.style.opacity = "0";
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
     document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); } catch (_) {}
     document.body.removeChild(ta);
@@ -790,17 +882,7 @@ $("copy").addEventListener("click", async () => {
   const b = $("copy"); b.textContent = "Copied ✓";
   setTimeout(() => { b.textContent = "Copy"; }, 1500);
 });
-$("addFile").addEventListener("click", () => addFileBlock("", "", true));
 $("uploadBtn").addEventListener("click", () => $("upload").click());
-$("collapseAll").addEventListener("click", () => {
-  const blocks = [...$("files").children];
-  const anyOpen = blocks.some((b) => !b.classList.contains("collapsed"));
-  blocks.forEach((b) => {
-    b.classList.toggle("collapsed", anyOpen);
-    b.querySelector(".fb-toggle").textContent = anyOpen ? "▸" : "▾";
-  });
-  $("collapseAll").textContent = anyOpen ? "Expand all" : "Collapse all";
-});
 
 // A brief, self-fading toast (upload feedback, etc.).
 let toastTimer = null;
@@ -867,9 +949,35 @@ function downloadText(filename, text, mime) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
-$("download").addEventListener("click", () => {
-  if (!outputRaw.trim()) { setStatus("Nothing to download yet.", true); return; }
+function closeDlMenu() {
+  $("dlMenu").hidden = true;
+  $("download").setAttribute("aria-expanded", "false");
+}
+$("download").addEventListener("click", (e) => {
+  e.stopPropagation();   // keep the document-level close handler from firing
+  if (!outputRaw.trim() && !modelDocRaw.trim()) { setStatus("Nothing to download yet.", true); return; }
+  const open = $("dlMenu").hidden;
+  if (open) {
+    $("dlCode").disabled = !outputRaw.trim();
+    $("dlDoc").disabled = !modelDocRaw.trim();
+    $("dlBoth").disabled = !(outputRaw.trim() && modelDocRaw.trim());
+  }
+  $("dlMenu").hidden = !open;
+  $("download").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("click", (e) => {
+  if (!$("dlMenu").hidden && !e.target.closest(".dl-wrap")) closeDlMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("dlMenu").hidden) closeDlMenu();
+});
+$("dlCode").addEventListener("click", () => { downloadText("model.py", outputRaw, "text/x-python"); closeDlMenu(); });
+$("dlDoc").addEventListener("click", () => { downloadText("model.md", modelDocRaw, "text/markdown"); closeDlMenu(); });
+$("dlBoth").addEventListener("click", () => {
   downloadText("model.py", outputRaw, "text/x-python");
+  // stagger the second download — some browsers drop back-to-back programmatic saves
+  setTimeout(() => downloadText("model.md", modelDocRaw, "text/markdown"), 200);
+  closeDlMenu();
 });
 
 // --- Schema reference doc ----------------------------------------------------
@@ -894,28 +1002,6 @@ $("reportToggle").addEventListener("click", () => {
 $("schemaDownload").addEventListener("click", () => {
   if (schemaText) downloadText("target_schema.py", schemaText, "text/x-python");
 });
-$("modelDocToggle").addEventListener("click", () => {
-  const collapsed = $("modelDoc").classList.toggle("collapsed");
-  $("modelDocToggle").setAttribute("aria-expanded", String(!collapsed));
-});
-$("modelDocDownload").addEventListener("click", () => {
-  if (modelDocRaw) downloadText("model.md", modelDocRaw, "text/markdown");
-});
-$("modelDocCopy").addEventListener("click", async () => {
-  if (!modelDocRaw.trim()) { setStatus("Nothing to copy yet.", true); return; }
-  try {
-    await navigator.clipboard.writeText(modelDocRaw);
-  } catch (e) {   // fallback for non-secure contexts / denied permission
-    const ta = document.createElement("textarea");
-    ta.value = modelDocRaw; ta.style.position = "fixed"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); } catch (_) {}
-    document.body.removeChild(ta);
-  }
-  const b = $("modelDocCopy"); b.textContent = "Copied ✓";
-  setTimeout(() => { b.textContent = "Copy"; }, 1500);
-});
-
 // --- Persistence wiring ------------------------------------------------------
 $("files").addEventListener("input", () => { scheduleSave(); updateActionBtn(); });
 $("category").addEventListener("change", saveSession);
