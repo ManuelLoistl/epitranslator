@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
+import threading
 import time
 from pathlib import Path
 
@@ -81,6 +83,55 @@ MAX_SOURCE_CHARS = int(os.environ.get("MAX_SOURCE_CHARS", "600000"))
 RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "20"))
 RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))
 _rate_hits: dict[str, list[float]] = {}
+# Emit an SSE comment whenever the translate stream has been silent this long,
+# so proxies between the browser and the app don't cut the connection as idle.
+HEARTBEAT_SECONDS = float(os.environ.get("SSE_HEARTBEAT_SECONDS", "15"))
+
+
+def _with_heartbeat(frames, interval: float | None = None):
+    """Yield SSE frames from *frames*, inserting ``: ping`` comments when idle.
+
+    The translate stream has long zero-byte stretches — the model's thinking
+    phase before the first code token (measured at 4m21s on a hard model), the
+    buffered retry regeneration, and the report/model.md calls. Edge proxies
+    kill connections that stay silent past their idle timeout, which the
+    browser surfaces as a network error. A ``:``-prefixed line is a
+    spec-compliant SSE comment; the frontend ignores anything that doesn't
+    start with ``data:``.
+
+    The source generator runs in a daemon thread feeding a queue; whenever no
+    frame arrives within *interval* seconds, a comment is emitted instead. On
+    early close (client disconnect) the thread is signalled to stop and exits
+    after its next frame.
+    """
+    if interval is None:
+        interval = HEARTBEAT_SECONDS
+    frame_queue: queue.Queue = queue.Queue()
+    stop = threading.Event()
+    done = object()  # sentinel: the source generator is exhausted
+
+    def produce():
+        try:
+            for frame in frames:
+                frame_queue.put(frame)
+                if stop.is_set():
+                    break
+        finally:
+            frame_queue.put(done)
+
+    threading.Thread(target=produce, daemon=True).start()
+    try:
+        while True:
+            try:
+                frame = frame_queue.get(timeout=interval)
+            except queue.Empty:
+                yield ": ping\n\n"
+                continue
+            if frame is done:
+                return
+            yield frame
+    finally:
+        stop.set()
 
 
 def _client_ip(request: Request) -> str:
@@ -237,7 +288,7 @@ async def translate(payload: dict, request: Request) -> StreamingResponse:
             yield _sse({"error": "Translation failed — please try again in a moment."})
 
     return StreamingResponse(
-        event_stream(),
+        _with_heartbeat(event_stream()),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
