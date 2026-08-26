@@ -43,7 +43,7 @@ class StochasticErlangVaccineModel(Model):
         schema.add_compartment("R", "Recovered", "Recovered and immune")
 
         # ---- Edges (register parameters; the stochastic equation() applies them by hand) ----
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible", target="exposed (stage 1)", variable_name="beta",
             frequency_dependent=True,
             label="Transmission Rate (S->E1)",
@@ -51,7 +51,7 @@ class StochasticErlangVaccineModel(Model):
             default=0.4, min_value=0.01, max_value=2.0,
             default_min=0.2, default_max=0.6, unit="per day",
         )
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible (vaccinated)", target="exposed (stage 1)", variable_name="beta_v",
             frequency_dependent=True,
             label="Transmission Rate, vaccinated (Sv->E1)",
@@ -59,7 +59,7 @@ class StochasticErlangVaccineModel(Model):
             default=0.12, min_value=0.0, max_value=2.0,
             default_min=0.04, default_max=0.2, unit="per day",
         )
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible", target="susceptible (vaccinated)", variable_name="nu",
             label="Vaccination Rate (S->Sv)",
             description="Per-capita daily vaccination rate",
@@ -68,7 +68,7 @@ class StochasticErlangVaccineModel(Model):
         )
         # Erlang latent: two explicit sub-stage edges, each a per-stage period.
         # Mean latent period 5 d over k=2 stages -> 2.5 d per stage.
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="exposed (stage 1)", target="exposed (stage 2)", variable_name="theta1",
             label="Latent sub-stage 1 (E1->E2)",
             description="First Erlang latent sub-stage duration",
@@ -76,7 +76,7 @@ class StochasticErlangVaccineModel(Model):
             default_min=1.5, default_max=4.0,
             unit="days", value_type=ValueType.DAYS,
         )
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="exposed (stage 2)", target="infected", variable_name="theta2",
             label="Latent sub-stage 2 (E2->I)",
             description="Second Erlang latent sub-stage duration",
@@ -84,7 +84,7 @@ class StochasticErlangVaccineModel(Model):
             default_min=1.5, default_max=4.0,
             unit="days", value_type=ValueType.DAYS,
         )
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="infected", target="recovered", variable_name="gamma",
             label="Recovery Period (I->R)",
             description="Average infectious period before recovery",

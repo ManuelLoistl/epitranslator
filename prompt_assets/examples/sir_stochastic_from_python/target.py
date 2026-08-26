@@ -39,7 +39,7 @@ class ExampleSirStochasticModel(Model):
         schema.add_compartment("I", "Infected", "Currently infected population", infective=True)
         schema.add_compartment("R", "Recovered", "Recovered and immune population")
 
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible",
             target="infected",
             variable_name="beta",
@@ -54,7 +54,7 @@ class ExampleSirStochasticModel(Model):
             unit="per day",
         )
 
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="infected",
             target="recovered",
             variable_name="gamma",

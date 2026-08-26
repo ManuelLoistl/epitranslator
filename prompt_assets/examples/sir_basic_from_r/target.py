@@ -22,7 +22,7 @@ class ExampleSirJaxModel(Model):
         schema.add_compartment("R", "Recovered", "Recovered and immune")
 
         # S->I: frequency-dependent transmission (beta * S * I / N).
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible",
             target="infected",
             variable_name="beta",
@@ -39,7 +39,7 @@ class ExampleSirJaxModel(Model):
 
         # I->R: recovery. The source expresses this as a 10-day infectious
         # period, so declare it in DAYS — the framework converts 1/10 -> rate.
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="infected",
             target="recovered",
             variable_name="gamma",

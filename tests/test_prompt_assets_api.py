@@ -3,7 +3,7 @@
 The assembled system prompt teaches Claude an API surface. When the framework
 renames or removes part of that surface, every translation we emit stops
 building — silently, because the app never imports the framework. These tests
-pin the names the framework actually exposes at upstream 699afe6 (2026-08-14).
+pin the names the framework actually exposes at upstream 6e29cb0 (2026-08-21).
 
 When upstream renames something again, update BOTH the assets and this file.
 """
@@ -18,8 +18,11 @@ EXAMPLES = sorted(ASSETS.glob("examples/*/target.py"))
 # Framework names that no longer exist — plus add_disease_parameter, which
 # upstream renamed to add_parameter at 3594940 (a deprecated alias remains,
 # but the prompt must teach the canonical name). None may appear in the prompt.
+# add_/remove_transmission_edge were renamed to *_transmission_parameter at
+# 6e29cb0 with NO alias — the old names fail hard.
 RETIRED = ["derivative(", "_compute_derivatives", "set_travel_volume",
-           "add_disease_parameter"]
+           "add_disease_parameter",
+           "add_transmission_edge", "remove_transmission_edge"]
 
 
 def test_examples_exist():

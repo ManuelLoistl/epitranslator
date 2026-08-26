@@ -85,7 +85,7 @@ class ParameterSchemaBuilder:
     # `variable_name` becomes self.<variable_name>. Numeric bounds are in NATIVE
     # units per `value_type`. default_min/default_max are the default uncertainty
     # band; min_value/max_value are hard limits.
-    def add_transmission_edge(
+    def add_transmission_parameter(
         self,
         source: str,                 # compartment id or label
         target: str,                 # compartment id or label
@@ -101,7 +101,7 @@ class ParameterSchemaBuilder:
         frequency_dependent: bool = False,
         value_type: "ValueType" = ValueType.RATE,
     ) -> None: ...
-    def remove_transmission_edge(self, variable_name: str) -> None: ...
+    def remove_transmission_parameter(self, variable_name: str) -> None: ...
 
     # --- Interventions (optional) ---
     # target_rates lists the edge variable_names this intervention reduces:

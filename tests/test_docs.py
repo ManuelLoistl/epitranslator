@@ -9,7 +9,7 @@ client = TestClient(app)
 def test_schema_reference_nonempty():
     text = schema_reference()
     assert "ParameterSchemaBuilder" in text
-    assert "add_transmission_edge" in text
+    assert "add_transmission_parameter" in text
 
 
 def test_api_docs_returns_schema():

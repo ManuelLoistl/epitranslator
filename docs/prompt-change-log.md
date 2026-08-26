@@ -657,3 +657,84 @@ and `.claude/MODEL_AUTHORING_REFERENCE.md` for `3e28faa..699afe6`:
   identifier rename whose old name remains a working alias, so the
   existing worked examples (which use neither name) and translations
   remain runnable by upstream's own definition.
+
+---
+
+## 2026-08-26
+
+### Resync: `add_transmission_edge` → `add_transmission_parameter` (`699afe6` → `6e29cb0`)
+
+#### Summary
+
+Upstream commit `6e29cb0` (2026-08-21, PR #126) renamed the schema builder's
+edge methods, with **no backwards alias**:
+
+- `add_transmission_edge()` → `add_transmission_parameter()`
+- `remove_transmission_edge()` → `remove_transmission_parameter()`
+
+Any translation emitted with the old name fails against current upstream —
+and fails **silently at registration**: the model imports, but
+`define_parameters()` raises `AttributeError` inside the base class's
+guarded schema build, so the model never registers and `DISEASE_TYPE` is
+never set. Discovered in practice on 2026-08-26 when three freshly
+translated test models would not register in an up-to-date checkout;
+`compartment.generate_artifact --list` simply omitted them.
+
+This is a pure identifier resync — same failure class as the 2026-08-18
+`add_disease_parameter` → `add_parameter` entry, but harder-failing (no
+alias remains upstream).
+
+#### Changes
+
+Mechanical rename of every call/stub, 16 sites across the upstream-owned
+assets — no signatures, defaults, or prose semantics changed:
+
+- `target_schema.py` — the `add_transmission_edge(` stub and the
+  `remove_transmission_edge(` stub (1 each).
+- `system_prompt.md` — the schema-declaration bullet
+  `schema.add_transmission_edge(...)` (1).
+- `examples/*/target.py` — every edge declaration: `sir_basic_from_r` (2),
+  `sir_stochastic_from_python` (2), `age_structured_seir_from_r` (3),
+  `stochastic_erlang_vaccine_from_python` (6).
+
+Before/after (identical at all 16 sites):
+
+```
+- schema.add_transmission_edge(
++ schema.add_transmission_parameter(
+```
+
+Deliberately **not** renamed, because upstream kept them: the
+`TransmissionEdgeDef` type, the `TransmissionEdges`/`transmission_edge`
+config keys, and prose references to "transmission edges" as a concept.
+
+#### Other upstream drift checked for `699afe6..ca02508` (2026-08-26 head)
+
+- `to_example_config()` gained an `uncertainty` flag — config-generation
+  detail, not part of the authoring surface the prompt teaches.
+- Validation now allows duplicate disease types (`c72dbbe`) — the prompt
+  never claimed uniqueness; nothing to change.
+- `AGENT_BASED` simulation option removed (`a27aebc`) — never referenced
+  by any prompt asset (verified by grep).
+- Upstream's docs were overhauled (`055ec00`, `9116cd5`):
+  `developing-models.md` was replaced by
+  `model-integration-documentation.md`, and a new
+  `docs/guides/model-conversion.md` now ships an official AI-conversion
+  prompt template. That template is an interactive, repo-aware workflow
+  (a different shape from EpiTranslator's single-shot prompt) and — worth
+  noting for upstream — itself still references the retired
+  `derivative()` / `_compute_derivatives()` names.
+
+#### Notes
+
+- Pure resync: net divergence from upstream went down, not up.
+- `tests/test_prompt_assets_api.py` adds both retired names to its guard
+  and now pins `6e29cb0`; `tests/test_docs.py` asserts the new name.
+  (App-owned test files, listed here only for traceability.)
+- End-to-end verification (both run 2026-08-26): a live re-translation of
+  the basic SIR fixture with the resynced prompt emitted
+  `add_transmission_parameter` at both edge sites and no occurrence of the
+  old name; and the pre-resync output of the same fixture, hand-patched
+  with only this rename, registered, ran, and passed the smoke suite in an
+  upstream checkout at `ca02508` (merged upstream as
+  WHO-Collaboratory/pandemic-simulator-compartment PR #137).

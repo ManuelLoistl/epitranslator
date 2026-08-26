@@ -50,7 +50,7 @@ Subclass `Model` and implement:
    compartment. **Mark `infective=True` on every compartment that contributes
    to the force of infection** (omitting it makes frequency-dependent FOI sum
    to zero — a silent bug).
-3. `schema.add_transmission_edge(...)` — one per compartment-to-compartment
+3. `schema.add_transmission_parameter(...)` — one per compartment-to-compartment
    movement. Its flow is either `rate * source` (a plain per-capita flow with
    NO dependence on infectives — for progression/recovery like E→I, I→R) or,
    with `frequency_dependent=True`, `source * rate * sum(infective) / N` (the

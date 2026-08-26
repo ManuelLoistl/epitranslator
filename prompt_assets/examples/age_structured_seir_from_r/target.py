@@ -35,7 +35,7 @@ class AgeStructuredSeirModel(Model):
 
         # ---- Transmission edges ----
         # S->E infection: frequency-dependent; applied manually (age contact matrix).
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="susceptible", target="exposed", variable_name="beta",
             frequency_dependent=True,
             label="Transmission Rate (S->E)",
@@ -44,7 +44,7 @@ class AgeStructuredSeirModel(Model):
             default_min=0.02, default_max=0.1, unit="per day",
         )
         # E->I: incubation expressed as a period (framework converts 1/days -> rate).
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="exposed", target="infected", variable_name="theta",
             label="Incubation Period (E->I)",
             description="Average days from exposure to becoming infectious",
@@ -53,7 +53,7 @@ class AgeStructuredSeirModel(Model):
             unit="days", value_type=ValueType.DAYS,
         )
         # I->R: recovery period.
-        schema.add_transmission_edge(
+        schema.add_transmission_parameter(
             source="infected", target="recovered", variable_name="gamma",
             label="Recovery Period (I->R)",
             description="Average infectious period before recovery",
