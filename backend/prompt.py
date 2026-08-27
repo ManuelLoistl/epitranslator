@@ -28,6 +28,7 @@ _SCHEMA_FILE = _ASSETS / "target_schema.py"
 _OUTPUT_REPORT_FILE = _ASSETS / "output_report.md"
 _MULTI_FILE_FILE = _ASSETS / "multi_file_guidance.md"
 _STRUCTURE_GUIDANCE_FILE = _ASSETS / "structure_guidance.md"
+_SEEDING_GUIDANCE_FILE = _ASSETS / "seeding_guidance.md"
 _METADATA_FILE = _ASSETS / "metadata_guidance.md"
 _MODEL_DOC_FILE = _ASSETS / "model_doc.md"
 _EXAMPLES_DIR = _ASSETS / "examples"
@@ -127,6 +128,10 @@ def build_system_prompt() -> str:
     structure_guidance = _strip_html_comments(_read(_STRUCTURE_GUIDANCE_FILE))
     if structure_guidance:
         parts.append(structure_guidance)
+
+    seeding_guidance = _strip_html_comments(_read(_SEEDING_GUIDANCE_FILE))
+    if seeding_guidance:
+        parts.append(seeding_guidance)
 
     metadata_guidance = _strip_html_comments(_read(_METADATA_FILE))
     if metadata_guidance:
@@ -256,6 +261,8 @@ def assets_status() -> dict:
         and bool(_strip_html_comments(_read(_MULTI_FILE_FILE))),
         "metadata_guidance_present": _METADATA_FILE.is_file()
         and bool(_strip_html_comments(_read(_METADATA_FILE))),
+        "seeding_guidance_present": _SEEDING_GUIDANCE_FILE.is_file()
+        and bool(_strip_html_comments(_read(_SEEDING_GUIDANCE_FILE))),
         "model_doc_present": _MODEL_DOC_FILE.is_file()
         and bool(_strip_html_comments(_read(_MODEL_DOC_FILE))),
     }

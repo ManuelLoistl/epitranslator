@@ -104,6 +104,20 @@ def test_system_prompt_documents_set_model_metadata():
     assert "Omit a field rather than guess at it" in prompt
 
 
+def test_system_prompt_documents_initial_population_seeding():
+    from backend.prompt import assets_status
+
+    # The framework's default get_initial_population() seeds compartments
+    # literally named "S"/"I"; models named otherwise must override it.
+    # Checked against the assembled prompt so a dropped append block fails.
+    prompt = build_system_prompt()
+    assert "get_initial_population" in prompt
+    # A distinctive sentence from seeding_guidance.md that cannot come from
+    # the upstream-owned assets (which never mention the seeding contract).
+    assert 'seeds compartments literally named `"S"` and' in prompt
+    assert assets_status()["seeding_guidance_present"] is True
+
+
 def test_metadata_guidance_forbids_invention():
     from backend.prompt import assets_status
 
