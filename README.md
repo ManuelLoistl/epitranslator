@@ -33,7 +33,45 @@ At **[epitranslator.com](https://epitranslator.com)**:
    `source` / `converted` / `derived` / `guessed`.
 5. Review the generated **`model.md`** — the documentation file that sits next to
    `model.py` in the model's folder — and copy or download it alongside the code.
-6. **Copy or download** the `model.py`, make final adjustments and take it into the Pandemic Simulator.
+6. **Copy or download** the `model.py` and `model.md`, make final adjustments and
+   take them into the Pandemic Simulator.
+
+### Adding the model to the Pandemic Simulator
+
+A model directory in the simulator holds five files. EpiTranslator produces the
+two that are authored — `model.py` and `model.md` — and the simulator's own
+tooling generates the rest (`__init__.py`, `main.py`, `example-config.json`).
+From a checkout of
+[pandemic-simulator-compartment](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment):
+
+1. Scaffold the directory (this creates the boilerplate files):
+
+   ```bash
+   python -m compartment.new_model <name> --label "<Label>" --disease-type <DISEASE_TYPE>
+   ```
+
+   Use the same `<DISEASE_TYPE>` as `set_model_info()` in the translated
+   `model.py`. The scaffold appends `_model`, so `<name>` becomes
+   `compartment/models/<name>_model/`.
+2. Replace the generated `model.py` and `model.md` with EpiTranslator's output.
+3. Generate the example configuration from the model's schema:
+
+   ```bash
+   python -m compartment.generate_artifact --model-dir compartment/models/<name>_model \
+       --example-config --config-output compartment/models/<name>_model/example-config.json
+   ```
+
+4. Run it, then the simulator's smoke tests:
+
+   ```bash
+   python -m compartment.models.<name>_model.main --mode local \
+       --config_file compartment/models/<name>_model/example-config.json --output_file results/<name>.json
+   python -m pytest tests/test_smoke.py -m integration -k <name>_model
+   ```
+
+See the simulator's
+[model integration guide](https://github.com/WHO-Collaboratory/pandemic-simulator-compartment/blob/main/docs/guides/model-integration-documentation.md)
+for naming conventions and the full authoring reference.
 
 The **Schema reference** button (top right) shows the exact target schema.
 
