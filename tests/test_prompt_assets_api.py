@@ -126,3 +126,19 @@ def test_metadata_guidance_forbids_invention():
     prompt = build_system_prompt()
     assert "Do not invent metadata" in prompt
     assert assets_status()["metadata_guidance_present"] is True
+
+
+def test_schema_stubs_accept_default_uncertainty_bounds():
+    # add_admin_zone_field() has carried default_min/default_max since upstream
+    # dd157bb (2026-03-24); add_parameter() gained them at 3594940 (2026-08-17,
+    # the same commit that renamed add_disease_parameter). The stubs must
+    # expose them or translations never declare uncertainty ranges on
+    # ordinary parameters.
+    tree = ast.parse((ASSETS / "target_schema.py").read_text(encoding="utf-8"))
+    stubs = {
+        node.name: {a.arg for a in node.args.args + node.args.kwonlyargs}
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+    }
+    for name in ("add_parameter", "add_admin_zone_field", "add_transmission_parameter"):
+        assert {"default_min", "default_max"} <= stubs[name], f"{name} stub lacks default_min/default_max"

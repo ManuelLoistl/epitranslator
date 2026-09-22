@@ -136,14 +136,18 @@ class ParameterSchemaBuilder:
     # add_admin_zone_field: per-zone inputs (e.g. seroprevalence, temperature).
     # add_parameter: top-level disease constants that aren't a single edge
     # rate (e.g. immunity_period, or the constants behind a manual flow).
+    # default_min/default_max: default uncertainty band (same meaning as on
+    # transmission parameters); min_value/max_value are hard limits.
     def add_admin_zone_field(self, name: str, label: str, description: str,
                              value_type: "ValueType", default: Any,
                              min_value: float | None = None, max_value: float | None = None,
+                             default_min: float | None = None, default_max: float | None = None,
                              unit: str | None = None, required: bool = False,
                              options: list[str] | None = None, **kwargs: Any) -> None: ...
     def add_parameter(self, name: str, label: str, description: str,
                       value_type: "ValueType", default: Any,
                       min_value: float | None = None, max_value: float | None = None,
+                      default_min: float | None = None, default_max: float | None = None,
                       unit: str | None = None, required: bool = True,
                       options: list[str] | None = None,
                       enable_variance: bool = True, **kwargs: Any) -> None: ...

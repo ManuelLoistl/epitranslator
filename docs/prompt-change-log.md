@@ -738,3 +738,80 @@ config keys, and prose references to "transmission edges" as a concept.
   with only this rename, registered, ran, and passed the smoke suite in an
   upstream checkout at `ca02508` (merged upstream as
   WHO-Collaboratory/pandemic-simulator-compartment PR #137).
+
+---
+
+## 2026-09-22
+
+### Resync: expose `default_min` / `default_max` on `add_parameter()` and `add_admin_zone_field()` (pin unchanged at `6e29cb0`)
+
+#### Summary
+
+Upstream's schema builder accepts a default uncertainty band
+(`default_min`, `default_max`) on **every** parameter-declaring method, not
+only on `add_transmission_parameter()`. Our `target_schema.py` stubs only
+showed it on the transmission method, so translations never declared an
+uncertainty range for ordinary disease parameters or per-zone fields.
+
+Provenance, established by checking the upstream file at each of our pins:
+
+- `add_admin_zone_field()` has carried the two kwargs since upstream
+  `dd157bb` (2026-03-24, PR #58) — before our first prompt snapshot. The stub
+  was incomplete from the start.
+- `add_parameter()` gained them in `3594940` (2026-08-17, PR #114) — the
+  same commit that renamed `add_disease_parameter` → `add_parameter`. The
+  2026-08-18 resync carried the rename but not the new kwargs.
+- `1938021` (2026-08-20, PR #122) made `to_example_config(uncertainty=True)`
+  consume the band for ordinary parameters, so the omission now has a
+  visible effect: `generate_artifact --example-config --uncertainty` yields
+  no sampling range for any `add_parameter()` value a translation declares.
+
+Found by an ast-diff of the `ParameterSchemaBuilder` method signatures at
+upstream HEAD `45c5867` (2026-09-10) against the stubs — the only signature
+difference. No rename or removal since `6e29cb0`, so the pinned commit is
+unchanged. Non-breaking: existing translations still build; they simply
+could not express something the framework supports.
+
+#### Changes
+
+`prompt_assets/target_schema.py`, two stub signatures. The kwargs are
+inserted after `max_value`, matching upstream's positional order:
+
+```
+     def add_admin_zone_field(self, name: str, label: str, description: str,
+                              value_type: "ValueType", default: Any,
+                              min_value: float | None = None, max_value: float | None = None,
++                             default_min: float | None = None, default_max: float | None = None,
+                              unit: str | None = None, required: bool = False,
+                              options: list[str] | None = None, **kwargs: Any) -> None: ...
+     def add_parameter(self, name: str, label: str, description: str,
+                       value_type: "ValueType", default: Any,
+                       min_value: float | None = None, max_value: float | None = None,
++                      default_min: float | None = None, default_max: float | None = None,
+                       unit: str | None = None, required: bool = True,
+                       options: list[str] | None = None,
+                       enable_variance: bool = True, **kwargs: Any) -> None: ...
+```
+
+Plus two comment lines above the stubs stating the semantics, mirroring the
+wording already used for the transmission method:
+
+```
++    # default_min/default_max: default uncertainty band (same meaning as on
++    # transmission parameters); min_value/max_value are hard limits.
+```
+
+`system_prompt.md` and the worked examples are untouched: none of the four
+examples declares a `default_min` on an ordinary parameter, and the
+instructions do not enumerate kwargs.
+
+#### Notes
+
+- Pure resync: net divergence from upstream went down.
+- `tests/test_prompt_assets_api.py` gains
+  `test_schema_stubs_accept_default_uncertainty_bounds`, which asserts all
+  three parameter-declaring stubs expose the band. (App-owned test file,
+  listed for traceability.)
+- Verification: full app suite 64 passed. The same day, before this change,
+  a live translation of the `ptti` fixture built and passed 13/13 upstream
+  smoke tests at `45c5867`, confirming no other drift.
