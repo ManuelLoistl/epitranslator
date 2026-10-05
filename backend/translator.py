@@ -90,10 +90,12 @@ def _strip_code_fences(chunks: Iterator[str]) -> Iterator[str]:
         yield buf
 
 # --- Configuration (env-overridable) ----------------------------------------
-MODEL = os.environ.get("TRANSLATOR_MODEL", "claude-opus-4-8")
+MODEL = os.environ.get("TRANSLATOR_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("TRANSLATOR_EFFORT", "high")  # low | medium | high | xhigh | max
 MAX_TOKENS = int(os.environ.get("TRANSLATOR_MAX_TOKENS", "32000"))
-# Adaptive thinking helps translation fidelity; disable with THINKING=off.
+# Adaptive thinking helps translation fidelity. THINKING=off omits the parameter,
+# which only disables thinking on models that default to it off (Opus 4.8 and
+# earlier); Opus 5.5 always thinks, so there it is a no-op.
 THINKING_ENABLED = os.environ.get("TRANSLATOR_THINKING", "adaptive").lower() != "off"
 
 # A stream cut mid-response leaves a truncated, non-building model.py. Because the
@@ -101,10 +103,12 @@ THINKING_ENABLED = os.environ.get("TRANSLATOR_THINKING", "adaptive").lower() != 
 # Total attempts including the first; 1 disables retrying.
 MAX_TRANSLATION_ATTEMPTS = int(os.environ.get("TRANSLATOR_MAX_ATTEMPTS", "3"))
 
-# The translation report is a separate, cheaper structured call.
+# The translation report is a separate, cheaper structured call. Thinking runs
+# inside REPORT_MAX_TOKENS on models that always think, so leave headroom or the
+# JSON truncates and the report silently comes back empty.
 REPORT_MODEL = os.environ.get("TRANSLATOR_REPORT_MODEL", MODEL)
 REPORT_EFFORT = os.environ.get("TRANSLATOR_REPORT_EFFORT", "low")
-REPORT_MAX_TOKENS = int(os.environ.get("TRANSLATOR_REPORT_MAX_TOKENS", "8000"))
+REPORT_MAX_TOKENS = int(os.environ.get("TRANSLATOR_REPORT_MAX_TOKENS", "16000"))
 
 # JSON schema the report call is constrained to (structured outputs). Every
 # object sets additionalProperties=False and lists its required keys, per the
